@@ -2,6 +2,7 @@ import { html, render, useState, useEffect, useRef } from '../vendor/preact-htm.
 import { api, store, thDateTime, thWindow, mmss, Icon, LogoBox, Toast, SpiderChart, LevelCells, drawResultCard, trapFocus, ThemeButton, UNI, LETTERS, MONO, LEVEL_NAMES } from './common.js';
 
 const TOKEN_KEY = 'psru-stu-token';
+const MIN_AWAY_MS = 1000; // shorter focus losses are ignored
 const ERR = {
   err_code: ['รหัสการสอบไม่ถูกต้อง', 'ตรวจสอบตัวอักษรอีกครั้ง รหัสมี 8 ตัว รูปแบบ XXXX-XXXX', 'code'],
   err_notyet: ['ยังไม่ถึงเวลาสอบ', d => 'รอบนี้เปิดให้เข้าสอบ ' + thDateTime(d.opensAt) + ' กรุณากลับมาอีกครั้งเมื่อถึงเวลา', 'code'],
@@ -102,7 +103,7 @@ function Confirm({ info, onStart, onLogout, starting, startErr }) {
   const r = info.round, a = info.attempt, resumed = a && a.status === 'in_progress';
   const rules = [
     'เมื่อกดเริ่ม หน้าจอจะเข้าสู่โหมดเต็มหน้าจออัตโนมัติ',
-    'การออกจากโหมดเต็มหน้าจอ สลับแอป หรือเปิดแท็บอื่น จะถูกบันทึกพร้อมเวลา',
+    'การออกจากโหมดเต็มหน้าจอ การสลับไปหน้าต่างหรือแอปอื่น (เช่น Alt+Tab หรือ Cmd+Tab) และการเปิดแท็บอื่น จะถูกบันทึกพร้อมเวลา',
     'ออกนอกหน้าจอได้ไม่เกิน ' + r.maxLeaves + ' ครั้ง ถ้าเกิน ระบบจะส่งข้อสอบให้อัตโนมัติ',
     'ลำดับตัวเลือกของแต่ละคนไม่เหมือนกัน',
     'คำตอบบันทึกอัตโนมัติทุกครั้งที่เลือก หากหลุดการเชื่อมต่อ เข้าสู่ระบบด้วยรหัสการสอบเดิมเพื่อทำต่อ',
@@ -284,7 +285,7 @@ function Exam({ token, roundName, exam, setExam, desktop, onSubmitted, onToast }
 
   // leave detection (tab switch / exit fullscreen)
   useEffect(() => {
-    let hiddenAt = null, wasFs = !!document.fullscreenElement, fsLeftAt = null, fsEvent = null;
+    let awayAt = null, wasFs = !!document.fullscreenElement, fsLeftAt = null, fsEvent = null;
     const report = async (kind, durationMs) => {
       if (S.current.finished) return null;
       try {
@@ -295,14 +296,18 @@ function Exam({ token, roundName, exam, setExam, desktop, onSubmitted, onToast }
         return r.eventId;
       } catch (e) { if (e.status === 409) onSubmitted(); return null; }
     };
-    // a tab switch is reported on return, with how long the student was away
-    const onVis = () => {
-      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
-      if (!hiddenAt) return;
-      const away = Date.now() - hiddenAt;
-      // switching tabs also drops fullscreen: count that single leave once, as a tab switch
-      const sameLeave = fsLeftAt && Math.abs(fsLeftAt - hiddenAt) < 2000;
-      hiddenAt = null;
+    // Leaving the exam window: another browser tab, a minimised window, or another window/app via
+    // Alt+Tab / Cmd+Tab / clicking elsewhere (the window stays visible but loses focus).
+    // Hidden and blur usually fire together, so one leave = one event, reported on return with its duration.
+    const isAway = () => document.visibilityState === 'hidden' || !document.hasFocus();
+    const onLeave = () => { if (!awayAt && isAway()) awayAt = Date.now(); };
+    const onBack = () => {
+      if (!awayAt || isAway()) return;
+      const away = Date.now() - awayAt, leftAt = awayAt;
+      awayAt = null;
+      if (away < MIN_AWAY_MS) return; // focus flicker, e.g. while the browser enters fullscreen
+      // switching window/tab also drops fullscreen: count that single leave once, as a switch
+      const sameLeave = fsLeftAt && Math.abs(fsLeftAt - leftAt) < 2000;
       if (!sameLeave) { report('tab', away); return; }
       const ev = fsEvent; fsLeftAt = null; fsEvent = null;
       ev.then(id => id && api('/student/event-duration', { method: 'POST', token, body: { durationMs: away, eventId: id, kind: 'tab' } }).catch(() => {}));
@@ -314,9 +319,15 @@ function Exam({ token, roundName, exam, setExam, desktop, onSubmitted, onToast }
         if (fsLeftAt) { const d = Date.now() - fsLeftAt, id = await fsEvent; fsLeftAt = null; fsEvent = null; api('/student/event-duration', { method: 'POST', token, body: { durationMs: d, eventId: id } }).catch(() => {}); }
       } else if (wasFs) { wasFs = false; fsLeftAt = Date.now(); fsEvent = report('fullscreen'); }
     };
+    const onVis = () => (document.visibilityState === 'hidden' ? onLeave() : onBack());
     document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('blur', onLeave);
+    window.addEventListener('focus', onBack);
     document.addEventListener('fullscreenchange', onFs);
-    return () => { document.removeEventListener('visibilitychange', onVis); document.removeEventListener('fullscreenchange', onFs); };
+    return () => {
+      document.removeEventListener('visibilitychange', onVis); window.removeEventListener('blur', onLeave); window.removeEventListener('focus', onBack);
+      document.removeEventListener('fullscreenchange', onFs);
+    };
   }, []);
 
   // keyboard shortcuts (desktop): A–J choose, ← → change question
@@ -375,7 +386,7 @@ function Exam({ token, roundName, exam, setExam, desktop, onSubmitted, onToast }
           </div>
         </aside>
         <div style="min-height:0;display:flex;flex-direction:column;background:var(--bg)">
-          ${iosBar('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจอ ทำข้อสอบต่อได้ตามปกติ ระบบยังบันทึกเมื่อสลับไปแท็บหรือโปรแกรมอื่น')}
+          ${iosBar('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจอ ทำข้อสอบต่อได้ตามปกติ ระบบยังบันทึกเมื่อสลับไปหน้าต่าง แท็บ หรือโปรแกรมอื่น')}
           <main style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden">
             <div style="max-width:820px;margin:0 auto;padding:32px 40px 40px;display:flex;flex-direction:column;gap:22px">
               <${QuestionBody} q=${q} idx=${cur} mine=${mine} onSelect=${select} onZoom=${setZoom} desktop />
@@ -471,7 +482,7 @@ function Exam({ token, roundName, exam, setExam, desktop, onSubmitted, onToast }
         <h2 id="lock-title" style="margin:0;font-size:27px;font-weight:700;line-height:1.45">${{ lock_fs: 'คุณออกจากโหมดเต็มหน้าจอ', lock_tab: 'ตรวจพบการสลับหน้าจอ', lock_submitting: 'กำลังส่งข้อสอบ…' }[ov]}</h2>
         <p style="margin:0;font-size:17px;color:#c9d2e3;line-height:1.7">${{
           lock_fs: 'ระบบบันทึกเหตุการณ์นี้พร้อมเวลาแล้ว เวลาสอบยังเดินต่อ กลับเข้าโหมดเต็มหน้าจอเพื่อทำข้อสอบต่อ',
-          lock_tab: 'คุณออกจากหน้าสอบไปยังแอปหรือแท็บอื่น ระบบบันทึกเหตุการณ์นี้พร้อมเวลาแล้ว เวลาสอบยังเดินต่อ',
+          lock_tab: 'คุณออกจากหน้าสอบไปยังหน้าต่าง แอป หรือแท็บอื่น ระบบบันทึกเหตุการณ์นี้พร้อมเวลาแล้ว เวลาสอบยังเดินต่อ',
           lock_submitting: 'อย่าปิดหน้านี้หรือออกจากเบราว์เซอร์ ระบบกำลังบันทึกคำตอบทั้งหมด' }[ov]}</p>
         ${ov !== 'lock_submitting' && html`
           <div style="width:100%;border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;align-items:center">
