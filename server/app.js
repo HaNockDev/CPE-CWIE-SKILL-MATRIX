@@ -476,19 +476,74 @@ admin.post('/questions/export', wrap(async (req, res) => {
   const withImages = req.body.images !== false;
   res.json({ format: 'psru-exam-bank', version: 1, exportedAt: new Date().toISOString(), questions: rows.map(q => withImages ? q : { ...q, image: q.image ? '[image]' : null, options: q.options.map(o => ({ ...o, image: o.image ? '[image]' : null })) }) });
 }));
+// ---- import from other formats (e.g. the old exam-bank artifact) ----
+const GROUP_ALIASES = { sw: ['software', 'softwaredevelopment', 'programming', 'ซอฟต์แวร์'], robot: ['robot', 'robotics', 'automation', 'robotautomation', 'robotandautomation', 'robotauto', 'หุ่นยนต์'], cyber: ['cyber', 'cybersecurity', 'security', 'ความปลอดภัย'], soft: ['softskill', 'softskills', 'ทักษะ'] };
+const squash = s => String(s ?? '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9฀-๿]/g, '');
+function rawGroupValue(raw) {
+  const v = raw.group_key ?? raw.groupKey ?? raw.group ?? raw.groupName ?? raw.group_name ?? raw.category ?? raw.subject ?? raw.subjectGroup ?? raw.section ?? raw.topic ?? '';
+  return typeof v === 'object' && v ? String(v.key ?? v.name ?? v.id ?? '') : String(v);
+}
+function resolveGroup(value, gs, map) {
+  if (map && Object.prototype.hasOwnProperty.call(map, value)) return map[value] || null; // admin's manual mapping ('' = skip)
+  const s = squash(value);
+  if (!s) return null;
+  for (const g of gs) if ([g.key, g.name, g.short].some(x => squash(x) === s)) return g.key;
+  for (const g of gs) for (const a of GROUP_ALIASES[g.key] || []) if (s === a || s.startsWith(a)) return g.key;
+  return null;
+}
+function letterIndex(v) {
+  if (typeof v === 'number') return v;
+  const t = String(v).trim();
+  if (/^\d+$/.test(t)) return +t;
+  if (/^[A-Ja-j]$/.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
+  return NaN;
+}
+function normalizeImported(raw, gs, map) {
+  const gv = rawGroupValue(raw), group_key = resolveGroup(gv, gs, map);
+  const list = raw.options ?? raw.choices ?? raw.answers ?? raw.choice ?? [];
+  let options = (Array.isArray(list) ? list : []).map(o => {
+    if (o == null || typeof o !== 'object') return { text: String(o ?? ''), image: null, correct: false };
+    const img = o.image ?? o.img ?? o.imageUrl ?? null;
+    return { text: String(o.text ?? o.label ?? o.value ?? o.choice ?? o.title ?? ''), image: img === '[image]' ? null : img, correct: !!(o.correct ?? o.isCorrect ?? o.is_correct ?? o.answer) };
+  });
+  // correct answers given separately: answer: 1 | 'B' | [0,2] | correct: ['A','C']
+  const ans = raw.answer ?? raw.correctAnswer ?? raw.correctAnswers ?? raw.correct_index ?? raw.correctIndex ?? (Array.isArray(raw.correct) || typeof raw.correct !== 'object' ? raw.correct : undefined);
+  if (ans != null && !options.some(o => o.correct)) {
+    const idx = (Array.isArray(ans) ? ans : String(ans).split(/[,\s]+/)).map(letterIndex).filter(Number.isInteger);
+    const oneBased = idx.length && !idx.includes(0) && Math.max(...idx) === options.length; // e.g. answer: 4 of 4 options
+    options = options.map((o, i) => ({ ...o, correct: idx.includes(oneBased ? i + 1 : i) }));
+  }
+  const d = raw.difficulty ?? raw.level ?? 1;
+  const difficulty = { 'ง่าย': 0, easy: 0, 'ปานกลาง': 1, medium: 1, normal: 1, 'ยาก': 2, hard: 2 }[String(d).toLowerCase()] ?? (+d >= 0 && +d <= 2 ? +d : +d === 3 ? 2 : 1);
+  const img = raw.image ?? raw.img ?? raw.imageUrl ?? null;
+  return {
+    groupValue: gv,
+    input: { group_key, type: raw.type === 'multi' || raw.type === 'multiple' ? 'multi' : undefined, text: raw.text ?? raw.question ?? raw.stem ?? raw.title ?? '', image: img === '[image]' ? null : img, options, explain: raw.explain ?? raw.explanation ?? raw.solution ?? '', difficulty, points: raw.points ?? raw.score ?? 1 }
+  };
+}
+
 admin.post('/questions/import', wrap(async (req, res) => {
   const list = Array.isArray(req.body.questions) ? req.body.questions : [];
   const dup = req.body.dup === 'overwrite' ? 'overwrite' : 'skip';
+  const map = req.body.groupMap && typeof req.body.groupMap === 'object' ? req.body.groupMap : null;
   const gs = await groups(), existing = new Set((await all('SELECT id FROM questions')).map(r => r.id));
-  const out = { total: list.length, added: 0, duplicate: 0, overwritten: 0, skipped: [] };
-  const todo = [];
+  const out = { total: list.length, added: 0, duplicate: 0, overwritten: 0, skipped: [], unknownGroups: [] };
+  const unknown = new Map(), todo = [];
   list.forEach((raw, i) => {
-    const clean = { ...raw, image: raw.image === '[image]' ? null : raw.image, options: (raw.options || []).map(o => ({ ...o, image: o.image === '[image]' ? null : o.image })) };
-    const v = questionInput(clean, gs), id = raw.id ? String(raw.id) : null;
+    if (!raw || typeof raw !== 'object') return out.skipped.push({ id: 'ข้อที่ ' + (i + 1), reason: 'รูปแบบข้อมูลไม่ถูกต้อง' });
+    const { groupValue, input } = normalizeImported(raw, gs, map);
+    const id = raw.id != null && raw.id !== '' ? String(raw.id) : null;
+    if (!input.group_key) {
+      if (!(map && groupValue in map)) unknown.set(groupValue, (unknown.get(groupValue) || 0) + 1);
+      const chosenSkip = map && groupValue in map;
+      return out.skipped.push({ id: id || 'ข้อที่ ' + (i + 1), reason: chosenSkip ? 'กลุ่ม “' + groupValue + '” เลือกไม่นำเข้า' : groupValue ? 'กลุ่มวิชา “' + groupValue + '” ไม่ตรงกับกลุ่มในระบบ' : 'ไม่มีกลุ่มวิชา' });
+    }
+    const v = questionInput(input, gs);
     if (v.error) return out.skipped.push({ id: id || 'ข้อที่ ' + (i + 1), reason: v.error });
     if (id && existing.has(id)) { out.duplicate++; if (dup === 'overwrite') { out.overwritten++; todo.push([id, v]); } return; }
     out.added++; todo.push([id, v]);
   });
+  out.unknownGroups = [...unknown].map(([value, count]) => ({ value, count }));
   if (!req.body.dryRun) for (const [id, v] of todo) { const nid = id || await nextQuestionId(v.group_key); existing.add(nid); await upsertQuestion(nid, v); }
   res.json(out);
 }));

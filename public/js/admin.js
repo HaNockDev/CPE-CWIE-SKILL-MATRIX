@@ -410,16 +410,29 @@ function Editor({ ctx, id, onClose }) {
 
 function QImport({ ctx, onClose }) {
   const [file, setFile] = useState(null), [data, setData] = useState(null), [dup, setDup] = useState('skip'), [check, setCheck] = useState(null), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
-  const dry = async (qs, d) => { try { setCheck(await call('/questions/import', { method: 'POST', body: { questions: qs, dup: d, dryRun: true } })); } catch (e) { setErr(e.message); } };
+  const [groupMap, setGroupMap] = useState({}), [unknown, setUnknown] = useState([]);
+  const dry = async (qs, d, gm) => {
+    try {
+      const r = await call('/questions/import', { method: 'POST', body: { questions: qs, dup: d, groupMap: gm, dryRun: true } });
+      setCheck(r);
+      // keep every unmatched group listed even after it has been mapped, so it can be changed again
+      setUnknown(u => { const seen = new Set(u.map(x => x.value)); return u.concat(r.unknownGroups.filter(x => !seen.has(x.value))); });
+    } catch (e) { setErr(e.message); }
+  };
   const pick = async () => {
     const f = await pickFile('.json,application/json'); if (!f) return;
-    setErr(''); setCheck(null);
-    try { const j = JSON.parse(await f.text()); const qs = Array.isArray(j) ? j : j.questions; if (!Array.isArray(qs)) throw new Error('ไม่พบรายการ questions'); setFile(f.name + ' · ' + (f.size / 1048576).toFixed(1) + ' MB'); setData(qs); dry(qs, dup); }
-    catch (e) { setErr('อ่านไฟล์ไม่ได้: ' + e.message); }
+    setErr(''); setCheck(null); setGroupMap({}); setUnknown([]);
+    try {
+      const j = JSON.parse(await f.text());
+      const qs = Array.isArray(j) ? j : [j.questions, j.items, j.bank, j.data, j.exams].find(Array.isArray);
+      if (!Array.isArray(qs)) throw new Error('ไม่พบรายการข้อสอบในไฟล์');
+      setFile(f.name + ' · ' + (f.size / 1048576).toFixed(1) + ' MB'); setData(qs); dry(qs, dup, {});
+    } catch (e) { setErr('อ่านไฟล์ไม่ได้: ' + e.message); }
   };
+  const mapGroup = (value, key) => { const gm = { ...groupMap, [value]: key }; setGroupMap(gm); dry(data, dup, gm); };
   const go = async () => {
     if (!data) return; setBusy(true);
-    try { const r = await call('/questions/import', { method: 'POST', body: { questions: data, dup } }); ctx.toast('นำเข้าแล้ว: เพิ่มใหม่ ' + r.added + ' · ' + (dup === 'skip' ? 'ข้าม' : 'เขียนทับ') + ' ' + r.duplicate + ' · ข้าม ' + r.skipped.length); ctx.reloadBank(); onClose(); }
+    try { const r = await call('/questions/import', { method: 'POST', body: { questions: data, dup, groupMap } }); ctx.toast('นำเข้าแล้ว: เพิ่มใหม่ ' + r.added + ' · ' + (dup === 'skip' ? 'ข้าม' : 'เขียนทับ') + ' ' + r.duplicate + ' · ข้าม ' + r.skipped.length); ctx.reloadBank(); onClose(); }
     catch (e) { setErr(e.status === 413 ? 'ไฟล์ใหญ่เกินไปสำหรับเซิร์ฟเวอร์ ลองแบ่งไฟล์หรือส่งออกแบบไม่มีรูป' : e.message); }
     setBusy(false);
   };
@@ -427,8 +440,19 @@ function QImport({ ctx, onClose }) {
     <h2 id="qi-t" style="margin:0;font-size:20px;font-weight:700">นำเข้าข้อสอบ (JSON)</h2>
     <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed var(--line-strong);border-radius:10px"><span style=${`flex:1;font-size:14px;color:${file ? 'var(--ink)' : 'var(--ink-3)'};word-break:break-all;${MONO}`}>${file || 'ยังไม่ได้เลือกไฟล์'}</span><button onClick=${pick} style=${bFill + ';height:40px;padding:0 14px;font-size:14px;border-radius:10px'}>เลือกไฟล์</button></div>
     <div style="display:flex;flex-direction:column;gap:8px"><span style="font-weight:600">กรณีมีข้อสอบรหัสเดียวกันอยู่ในระบบแล้ว</span>
-      <div role="radiogroup" style="display:flex;gap:8px">${[['skip', 'ข้าม (เก็บของเดิม)'], ['overwrite', 'เขียนทับด้วยไฟล์ใหม่']].map(([k, l]) => html`<button role="radio" aria-checked=${dup === k} onClick=${() => { setDup(k); if (data) dry(data, k); }} style=${`flex:1;height:44px;border-radius:10px;border:2px solid ${sel(dup === k).border};background:${sel(dup === k).bg};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer`}>${l}</button>`)}</div>
+      <div role="radiogroup" style="display:flex;gap:8px">${[['skip', 'ข้าม (เก็บของเดิม)'], ['overwrite', 'เขียนทับด้วยไฟล์ใหม่']].map(([k, l]) => html`<button role="radio" aria-checked=${dup === k} onClick=${() => { setDup(k); if (data) dry(data, k, groupMap); }} style=${`flex:1;height:44px;border-radius:10px;border:2px solid ${sel(dup === k).border};background:${sel(dup === k).bg};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer`}>${l}</button>`)}</div>
     </div>
+    ${unknown.length > 0 && html`<div style="border:1.5px solid var(--warn-line);background:var(--warn-soft);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;font-size:14px">
+      <strong style="font-size:15px">จับคู่กลุ่มวิชาจากไฟล์กับกลุ่มในระบบ</strong>
+      <span style="color:var(--ink-2)">ไฟล์นี้ใช้ชื่อกลุ่มที่ระบบไม่รู้จัก เลือกว่าแต่ละกลุ่มให้นำเข้าเป็นกลุ่มใด</span>
+      ${unknown.map(u => html`<label style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:center">
+        <span style="font-weight:600;word-break:break-all">“${u.value || '(ไม่มีกลุ่ม)'}” <span style="font-weight:400;color:var(--ink-3)">${u.count} ข้อ</span></span>
+        <select value=${groupMap[u.value] ?? '__unset'} onChange=${e => mapGroup(u.value, e.target.value)} style=${inp + ';height:40px;background:var(--surface)'}>
+          <option value="__unset" disabled>เลือกกลุ่มวิชา…</option>
+          ${ctx.meta.groups.map(g => html`<option value=${g.key}>${g.name}</option>`)}
+          <option value="">ข้าม ไม่นำเข้า</option>
+        </select></label>`)}
+    </div>`}
     ${check && html`<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px">
       <strong style="font-size:15px">ตรวจไฟล์แล้ว · พบ ${check.total} ข้อ</strong>
       <span style="color:var(--ok);font-weight:600">✓ เพิ่มใหม่ ${check.added} ข้อ</span>
@@ -437,7 +461,7 @@ function QImport({ ctx, onClose }) {
       ${check.skipped.length > 8 && html`<span style="color:var(--warn)">และอีก ${check.skipped.length - 8} ข้อ</span>`}
     </div>`}
     ${err && html`<div role="alert" style="color:var(--danger);font-weight:600">${err}</div>`}
-    <span style="font-size:13px;color:var(--ink-3)">รองรับไฟล์ที่ส่งออกจากระบบนี้ ({ "questions": [ … ] }) แต่ละข้อมี group_key, text, options[{ text, correct }]</span>
+    <span style="font-size:13px;color:var(--ink-3)">รองรับไฟล์ที่ส่งออกจากระบบนี้และจากคลังข้อสอบเดิม (exam-bank) · กลุ่มที่ระบบไม่รู้จักจะให้เลือกจับคู่ก่อนนำเข้า</span>
     <div style="display:flex;justify-content:flex-end;gap:10px">
       <button onClick=${onClose} style=${bFill}>ยกเลิก</button>
       <button onClick=${go} disabled=${!data || busy} style=${bPrimary + ';opacity:' + (data && !busy ? 1 : 0.5)}>${busy ? 'กำลังนำเข้า…' : 'นำเข้า'}</button>
