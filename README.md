@@ -64,6 +64,15 @@ Vercel เป็น serverless ไฟล์ระบบเขียนถาว�
 
 ถ้าไม่ตั้ง Turso ระบบจะใช้ `/tmp/exam.db` ชั่วคราวและแสดงคำเตือนในหน้าผู้ดูแล
 
+## สำรองฐานข้อมูล (Backup)
+
+- **อัตโนมัติทุกวัน 02:07 น.** ด้วย GitHub Actions (`.github/workflows/backup-db.yml`) ไฟล์ถูกบีบอัดและ**เข้ารหัส AES-256** แล้วเก็บเป็น artifact 30 วัน
+  ตั้ง Secrets ใน GitHub → Settings → Secrets and variables → Actions: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `BACKUP_PASSPHRASE`
+- **สำรองเอง**: `TURSO_DATABASE_URL=… TURSO_AUTH_TOKEN=… npm run backup > backup.sql`
+- **ถอดรหัสไฟล์จาก Actions**:
+  `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in psru-exam-XXXX.sql.gz.enc -out backup.sql.gz` แล้ว `gunzip backup.sql.gz`
+- **กู้คืนลงฐานข้อมูลใหม่**: `turso db create psru-exam-restore` → `turso db shell psru-exam-restore < backup.sql` แล้วเปลี่ยน `TURSO_DATABASE_URL` ใน Vercel ไปที่ฐานใหม่
+
 ## ตัวแปรสภาพแวดล้อม
 
 ดู `.env.example` — สำคัญที่สุดคือ `ADMIN_PASSWORD` และ `APP_SECRET` (ถ้าไม่ตั้ง `APP_SECRET` ระบบสุ่มเก็บไว้ในฐานข้อมูลให้)

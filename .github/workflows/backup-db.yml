@@ -1,0 +1,57 @@
+# สำรองฐานข้อมูล Turso ทุกวัน แล้วเก็บเป็นไฟล์เข้ารหัสใน GitHub Actions artifacts
+# ต้องตั้ง Secrets: TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, BACKUP_PASSPHRASE
+# repo เป็น public: ไฟล์ที่อัปโหลดต้องเข้ารหัสเสมอ เพราะมีข้อมูลส่วนบุคคลของนักศึกษา
+name: Backup database
+
+on:
+  schedule:
+    - cron: '7 19 * * *'   # 02:07 น. เวลาไทย (19:07 UTC) ทุกวัน
+  workflow_dispatch:        # กดรันเองได้จากแท็บ Actions
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-db
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --omit=dev
+
+      - name: Dump database
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          test -n "$TURSO_DATABASE_URL" || { echo "::error::ยังไม่ได้ตั้ง secret TURSO_DATABASE_URL"; exit 1; }
+          node scripts/backup-db.mjs > backup.sql
+          test -s backup.sql
+
+      - name: Compress and encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$BACKUP_PASSPHRASE" || { echo "::error::ยังไม่ได้ตั้ง secret BACKUP_PASSPHRASE"; exit 1; }
+          STAMP=$(TZ=Asia/Bangkok date +%Y%m%d-%H%M)
+          gzip -9 backup.sql
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in backup.sql.gz -out "psru-exam-$STAMP.sql.gz.enc" -pass env:BACKUP_PASSPHRASE
+          rm backup.sql.gz
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: psru-exam-backup-${{ env.STAMP }}
+          path: psru-exam-*.sql.gz.enc
+          retention-days: 30
+          if-no-files-found: error
