@@ -291,18 +291,33 @@ function ImportRoster({ ctx, round, onClose }) {
 function BankTab({ ctx }) {
   const { meta, bank } = ctx;
   const [g, setG] = useState('all'), [t, setT] = useState('all'), [q, setQ] = useState(''), [tag, setTag] = useState('all');
+  const [picked, setPicked] = useState(() => new Set()), [bulkTag, setBulkTag] = useState(''), [bulkBusy, setBulkBusy] = useState(false);
   const courseBy = Object.fromEntries((meta.courses || []).map(c => [c.tag, c]));
   const gName = k => (meta.groups.find(x => x.key === k) || {}).name || k;
   const qq = q.trim().toLowerCase();
   const tagHit = b => (b.tags || []).some(x => x.includes(qq) || (courseBy[x] && courseBy[x].code.toLowerCase().includes(qq)));
   const rows = (bank || []).filter(b => (g === 'all' || b.group_key === g) && (t === 'all' || b.type === t) && (tag === 'all' || (tag === 'none' ? !(b.tags || []).length : (b.tags || []).includes(tag))) && (!qq || b.text.toLowerCase().includes(qq) || b.id.toLowerCase().includes(qq) || tagHit(b)));
   ctx.bankFiltered = rows;
+  const shownPicked = rows.filter(b => picked.has(b.id)), allPicked = rows.length > 0 && shownPicked.length === rows.length;
+  const togglePick = id => setPicked(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const pickAll = () => setPicked(p => { const n = new Set(p); rows.forEach(b => allPicked ? n.delete(b.id) : n.add(b.id)); return n; });
+  const bulk = async mode => {
+    if (!bulkTag || !picked.size) return;
+    setBulkBusy(true);
+    try {
+      const r = await call('/questions/bulk-tags', { method: 'POST', body: { ids: [...picked], [mode]: [bulkTag] } });
+      ctx.toast((mode === 'add' ? 'ติด tag ' : 'เอา tag ออก ') + bulkTag + ' แล้ว ' + r.updated + ' ข้อ'); await ctx.reloadBank();
+    } catch (e) { ctx.toast(e.message, 'error'); }
+    setBulkBusy(false);
+  };
+  const cbox = 'width:20px;height:20px;accent-color:var(--primary);cursor:pointer;margin:0';
   const total = meta.groups.reduce((a, x) => a + x.bank, 0);
   const chip = on => ({ border: on ? 'var(--primary)' : 'transparent', bg: on ? 'var(--primary)' : 'var(--fill)', ink: on ? 'var(--primary-ink)' : 'var(--ink)', countBg: on ? 'rgba(255,255,255,.22)' : 'var(--surface-2)' });
   const copy = async b => { try { const r = await call('/questions/' + b.id + '/copy', { method: 'POST' }); ctx.toast('คัดลอก ' + b.id + ' เป็น ' + r.id + ' แล้ว'); ctx.reloadBank(); } catch (e) { ctx.toast(e.message, 'error'); } };
   return html`
     <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
       <div style="flex:1;min-width:240px"><h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.45">คลังข้อสอบ</h1><span style="color:var(--ink-2)">ทั้งหมด ${total} ข้อ</span></div>
+      <button onClick=${() => ctx.open({ kind: 'courses' })} class="h-surface2" style=${bFill + ';padding:0 16px'}>จัดการรายวิชา</button>
       <button onClick=${() => ctx.open({ kind: 'qimport' })} class="h-surface2" style=${bFill + ';padding:0 16px'}>นำเข้า JSON</button>
       <button onClick=${() => ctx.open({ kind: 'qexport' })} class="h-surface2" style=${bFill + ';padding:0 16px'}>ส่งออก</button>
       <button onClick=${() => ctx.open({ kind: 'editor', id: null })} class="h-primary" style=${bPrimary}>+ เพิ่มข้อสอบ</button>
@@ -323,13 +338,24 @@ function BankTab({ ctx }) {
         </select>
         <span style="margin-left:auto;color:var(--ink-3);font-size:14px">พบ ${rows.length} ข้อ</span>
       </div>
+      ${picked.size > 0 && html`<div role="region" aria-label="จัดการข้อที่เลือก" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:var(--primary-soft);border-bottom:1px solid var(--line)">
+        <strong style="color:var(--primary)">เลือก ${picked.size} ข้อ</strong>${shownPicked.length < picked.size && html`<span style="font-size:13px;color:var(--ink-2)">(${picked.size - shownPicked.length} ข้ออยู่นอกตัวกรองนี้)</span>`}
+        <select aria-label="รายวิชาสำหรับข้อที่เลือก" value=${bulkTag} onChange=${e => setBulkTag(e.target.value)} style=${inp + ';height:40px;background:var(--surface);max-width:320px'}>
+          <option value="">เลือกรายวิชา…</option>${(meta.courses || []).map(c => html`<option value=${c.tag}>${c.tag} · ${c.code} ${c.name}</option>`)}
+        </select>
+        <button onClick=${() => bulk('add')} disabled=${!bulkTag || bulkBusy} style=${bPrimary + ';height:40px;font-size:14px;opacity:' + (!bulkTag || bulkBusy ? 0.5 : 1)}>ติด tag</button>
+        <button onClick=${() => bulk('remove')} disabled=${!bulkTag || bulkBusy} style=${bFill + ';height:40px;font-size:14px;background:var(--surface);opacity:' + (!bulkTag || bulkBusy ? 0.5 : 1)}>เอา tag ออก</button>
+        <button onClick=${() => setPicked(new Set())} style=${bGhost() + ';height:40px;margin-left:auto'}>ล้างการเลือก</button>
+      </div>`}
       ${!bank && html`<div style="padding:40px;text-align:center;color:var(--ink-2)">กำลังโหลดข้อมูล…</div>`}
       ${bank && rows.length > 0 && html`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:1040px">
         <thead><tr style="background:var(--surface-2);color:var(--ink-2);text-align:left">
-          <th style="padding:10px 16px;font-weight:600;width:110px">รหัส</th><th style="padding:10px 8px;font-weight:600;width:170px">กลุ่มวิชา</th><th style="padding:10px 8px;font-weight:600;width:110px">ประเภท</th><th style="padding:10px 8px;font-weight:600">โจทย์</th><th style="padding:10px 8px;font-weight:600;width:190px">รายวิชา</th><th style="padding:10px 8px;font-weight:600;width:56px;text-align:center">รูป</th><th style="padding:10px 8px;font-weight:600;width:90px">ความยาก</th><th style="padding:10px 16px;font-weight:600;width:230px;text-align:right">จัดการ</th>
+          <th style="padding:10px 0 10px 16px;width:40px"><input type="checkbox" aria-label="เลือกทุกข้อที่แสดง" checked=${allPicked} onChange=${pickAll} style=${cbox} /></th>
+          <th style="padding:10px 8px;font-weight:600;width:110px">รหัส</th><th style="padding:10px 8px;font-weight:600;width:170px">กลุ่มวิชา</th><th style="padding:10px 8px;font-weight:600;width:110px">ประเภท</th><th style="padding:10px 8px;font-weight:600">โจทย์</th><th style="padding:10px 8px;font-weight:600;width:190px">รายวิชา</th><th style="padding:10px 8px;font-weight:600;width:56px;text-align:center">รูป</th><th style="padding:10px 8px;font-weight:600;width:90px">ความยาก</th><th style="padding:10px 16px;font-weight:600;width:230px;text-align:right">จัดการ</th>
         </tr></thead>
-        <tbody>${rows.map(b => html`<tr key=${b.id} style="border-top:1px solid var(--line)">
-          <td style=${'padding:10px 16px;font-size:13px;color:var(--ink-2);' + MONO}>${b.id}</td>
+        <tbody>${rows.map(b => html`<tr key=${b.id} style=${`border-top:1px solid var(--line);background:${picked.has(b.id) ? 'var(--primary-soft)' : 'transparent'}`}>
+          <td style="padding:10px 0 10px 16px"><input type="checkbox" aria-label=${'เลือก ' + b.id} checked=${picked.has(b.id)} onChange=${() => togglePick(b.id)} style=${cbox} /></td>
+          <td style=${'padding:10px 8px;font-size:13px;color:var(--ink-2);' + MONO}>${b.id}</td>
           <td style="padding:10px 8px">${gName(b.group_key)}</td>
           <td style="padding:10px 8px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink-2)"><span style=${`width:12px;height:12px;border:2px solid currentColor;border-radius:${b.type === 'multi' ? '3px' : '50%'}`}></span>${b.type === 'multi' ? 'หลายข้อ' : 'ข้อเดียว'}</span></td>
           <td style="padding:10px 8px;max-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.7" title=${b.text}>${b.text.replace(/\n+/g, ' ')}</div></td>
@@ -515,13 +541,67 @@ function QExport({ ctx, onClose }) {
     </div><//>`;
 }
 
+function CourseRow({ c, i, n, ctx, onMove }) {
+  const [f, setF] = useState({ code: c.code, name: c.name }), [busy, setBusy] = useState(false);
+  useEffect(() => setF({ code: c.code, name: c.name }), [c.code, c.name]);
+  const dirty = f.code !== c.code || f.name !== c.name;
+  const save = async () => { setBusy(true); try { await call('/courses/' + c.tag, { method: 'PUT', body: f }); ctx.toast('บันทึกรายวิชา ' + c.tag + ' แล้ว'); await ctx.reloadBank(); } catch (e) { ctx.toast(e.message, 'error'); } setBusy(false); };
+  const del = () => ctx.confirm({ title: 'ลบรายวิชา ' + c.tag + '?', body: c.used ? 'tag นี้จะถูกเอาออกจากข้อสอบ ' + c.used + ' ข้อ ตัวข้อสอบไม่ถูกลบ' : 'ยังไม่มีข้อสอบที่ติด tag นี้', btn: 'ลบรายวิชา', danger: true, action: async () => { await call('/courses/' + c.tag, { method: 'DELETE' }); ctx.toast('ลบรายวิชา ' + c.tag + ' แล้ว'); await ctx.reloadBank(); } });
+  const ico = 'width:36px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--ink-2);cursor:pointer;font-size:15px;flex:none';
+  return html`<tr style="border-top:1px solid var(--line)">
+    <td style=${'padding:8px 8px 8px 16px;font-weight:600;' + MONO}>${c.tag}</td>
+    <td style="padding:6px"><input aria-label=${'รหัสวิชา ' + c.tag} value=${f.code} onInput=${e => setF({ ...f, code: e.target.value })} style=${inp + ';height:40px;width:110px;' + MONO} /></td>
+    <td style="padding:6px"><input aria-label=${'ชื่อวิชา ' + c.tag} value=${f.name} onInput=${e => setF({ ...f, name: e.target.value })} style=${inp + ';height:40px;width:100%'} /></td>
+    <td style="padding:6px;text-align:right;color:var(--ink-2);white-space:nowrap">${c.used} ข้อ</td>
+    <td style="padding:6px 12px 6px 6px;white-space:nowrap;text-align:right">
+      ${dirty && html`<button onClick=${save} disabled=${busy} style=${bPrimary + ';height:36px;padding:0 12px;font-size:13px'}>บันทึก</button>`}
+      <button onClick=${() => onMove(i, -1)} disabled=${i === 0} aria-label=${'เลื่อน ' + c.tag + ' ขึ้น'} style=${ico + ';opacity:' + (i === 0 ? 0.35 : 1)}>↑</button>
+      <button onClick=${() => onMove(i, 1)} disabled=${i === n - 1} aria-label=${'เลื่อน ' + c.tag + ' ลง'} style=${ico + ';opacity:' + (i === n - 1 ? 0.35 : 1)}>↓</button>
+      <button onClick=${del} aria-label=${'ลบ ' + c.tag} class="h-danger" style=${ico + ';color:var(--danger);font-size:18px'}>×</button>
+    </td></tr>`;
+}
+
+function CoursesModal({ ctx, onClose }) {
+  const list = ctx.meta.courses || [];
+  const [nf, setNf] = useState({ tag: '', code: '', name: '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
+  const add = async e => {
+    e.preventDefault(); setBusy(true); setErr('');
+    try { await call('/courses', { method: 'POST', body: nf }); ctx.toast('เพิ่มรายวิชา ' + nf.tag + ' แล้ว'); setNf({ tag: '', code: '', name: '' }); await ctx.reloadBank(); } catch (x) { setErr(x.message); }
+    setBusy(false);
+  };
+  const move = async (i, d) => {
+    const tags = list.map(c => c.tag); [tags[i], tags[i + d]] = [tags[i + d], tags[i]];
+    try { await call('/courses/order', { method: 'PUT', body: { tags } }); await ctx.reloadBank(); } catch (x) { ctx.toast(x.message, 'error'); }
+  };
+  return html`<${Modal} onClose=${onClose} labelledby="cs-t" style="position:relative;width:100%;max-width:920px;max-height:100%;overflow:auto;background:var(--surface);border-radius:22px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+    <${ModalHead} id="cs-t" title="จัดการรายวิชา (tag)" onClose=${onClose} />
+    <div style="padding:12px 24px 0;color:var(--ink-2);font-size:14px">ตัวย่อ (tag) แก้ไม่ได้หลังสร้าง เพราะผูกกับข้อสอบที่ติดไว้แล้ว · ลำดับในหน้านี้คือลำดับที่แสดงในหน้าแก้ไขข้อสอบและรายงาน</div>
+    <div style="padding:12px 8px 0;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;min-width:720px">
+        <thead><tr style="color:var(--ink-2);text-align:left"><th style="padding:8px 8px 8px 16px;font-weight:600;width:130px">ตัวย่อ</th><th style="padding:8px 6px;font-weight:600;width:130px">รหัสวิชา</th><th style="padding:8px 6px;font-weight:600">ชื่อวิชา</th><th style="padding:8px 6px;font-weight:600;text-align:right;width:80px">ใช้อยู่</th><th style="width:200px"></th></tr></thead>
+        <tbody>${list.map((c, i) => html`<${CourseRow} key=${c.tag} c=${c} i=${i} n=${list.length} ctx=${ctx} onMove=${move} />`)}</tbody>
+      </table>
+      ${!list.length && html`<div style="padding:24px;text-align:center;color:var(--ink-2)">ยังไม่มีรายวิชา</div>`}
+    </div>
+    <form onSubmit=${add} style="margin:16px 24px 20px;padding:14px 16px;border:1.5px dashed var(--line-strong);border-radius:12px;display:flex;flex-direction:column;gap:10px">
+      <strong>เพิ่มรายวิชา</strong>
+      <div style="display:grid;grid-template-columns:140px 130px minmax(0,1fr) auto;gap:8px;align-items:center">
+        <input aria-label="ตัวย่อ" placeholder="ตัวย่อ เช่น ai" value=${nf.tag} onInput=${e => setNf({ ...nf, tag: e.target.value.toLowerCase().replace(/\s/g, '') })} style=${inp + ';height:40px;' + MONO} />
+        <input aria-label="รหัสวิชา" placeholder="CPEN000" value=${nf.code} onInput=${e => setNf({ ...nf, code: e.target.value.toUpperCase() })} style=${inp + ';height:40px;' + MONO} />
+        <input aria-label="ชื่อวิชา" placeholder="ชื่อวิชาภาษาไทย" value=${nf.name} onInput=${e => setNf({ ...nf, name: e.target.value })} style=${inp + ';height:40px'} />
+        <button type="submit" disabled=${busy || !nf.tag || !nf.code || !nf.name} style=${bPrimary + ';height:40px;opacity:' + (busy || !nf.tag || !nf.code || !nf.name ? 0.5 : 1)}>+ เพิ่ม</button>
+      </div>
+      ${err && html`<span role="alert" style="color:var(--danger);font-weight:600;font-size:14px">${err}</span>`}
+    </form><//>`;
+}
+
 // ================= A3 Results =================
 const STL = { submitted: ['ส่งแล้ว', 'var(--ok)'], submitted_pending: ['หมดเวลา (รอประมวลผล)', 'var(--ok)'], in_progress: ['กำลังสอบ', 'var(--primary)'], not_started: ['ยังไม่เริ่ม', 'var(--ink-3)'] };
 
 function ResultsTab({ ctx }) {
   const { rounds, meta } = ctx;
   const rid = ctx.resRound || (rounds && rounds[0] && rounds[0].id);
-  const [data, setData] = useState(null), [q, setQ] = useState(''), [anom, setAnom] = useState(false), [stat, setStat] = useState('all'), [sort, setSort] = useState(['sid', 1]), [pub, setPub] = useState(null);
+  const [data, setData] = useState(null), [q, setQ] = useState(''), [anom, setAnom] = useState(false), [stat, setStat] = useState('all'), [sort, setSort] = useState(['sid', 1]), [pub, setPub] = useState(null), [view, setView] = useState('people');
   const load = () => rid && call('/results/' + rid).then(setData).catch(e => ctx.toast(e.message, 'error'));
   useEffect(() => { setData(null); setStat('all'); load(); }, [rid]);
   if (!rounds) return html`<div style="color:var(--ink-2)">กำลังโหลด…</div>`;
@@ -553,10 +633,13 @@ function ResultsTab({ ctx }) {
   return html`
     <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
       <div style="flex:1;min-width:240px"><h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.45">ผลสอบ</h1><span style="color:var(--ink-2)">${r ? all.length + ' คน · ออกนอกหน้าจอได้ ' + max + ' ครั้ง' : 'กำลังโหลด…'}</span></div>
+      <div role="radiogroup" aria-label="มุมมอง" style="display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--fill)">
+        ${[['people', 'รายคน'], ['courses', 'รายวิชา (tag)']].map(([k, l]) => html`<button role="radio" aria-checked=${view === k} onClick=${() => setView(k)} style=${`height:40px;padding:0 16px;border:none;border-radius:8px;background:${view === k ? 'var(--surface)' : 'transparent'};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;box-shadow:${view === k ? '0 1px 3px rgba(0,0,0,.14)' : 'none'}`}>${l}</button>`)}
+      </div>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-3)">รอบสอบ
         <select value=${rid} onChange=${e => ctx.setResRound(e.target.value)} style=${inp + ';min-width:min(360px,80vw)'}>${rounds.map(o => html`<option value=${o.id}>${o.name}</option>`)}</select></label>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
+    ${view === 'courses' ? html`<${CourseReport} ctx=${ctx} rid=${rid} />` : html`<div style="display:flex;gap:10px;flex-wrap:wrap">
       ${chip('submitted', 'ส่งแล้ว', cnt('submitted'), 'var(--ok)')}${chip('in_progress', 'กำลังสอบ', cnt('in_progress'), 'var(--primary)')}${chip('not_started', 'ยังไม่เริ่ม', cnt('not_started'), 'var(--ink-3)')}${chip(null, 'เผยแพร่ผล', r && r.published ? 'แล้ว' : 'ยังไม่', r && r.published ? 'var(--ok)' : 'var(--warn)')}
     </div>
     <div style=${cardS + ';overflow:hidden'}>
@@ -588,7 +671,41 @@ function ResultsTab({ ctx }) {
         ${data && !rows.length && html`<div style="padding:40px;text-align:center;color:var(--ink-2)">${all.length === 0 ? 'ยังไม่มีผู้สอบในรอบนี้ นำเข้ารายชื่อจากแท็บรอบสอบ' : 'ไม่พบแถวที่ตรงกับตัวกรอง'}</div>`}
         ${!data && html`<div style="padding:40px;text-align:center;color:var(--ink-2)">กำลังโหลดข้อมูล…</div>`}
       </div>
-    </div>`;
+    </div>`}`;
+}
+
+// ---- per-course (tag) report for a round: aggregates every submitted attempt ----
+const LOW_PCT = 50, FEW_ITEMS = 20;
+function CourseReport({ ctx, rid }) {
+  const [rep, setRep] = useState(null), [order, setOrder] = useState('weak');
+  useEffect(() => { setRep(null); call('/results/' + rid + '/courses').then(setRep).catch(e => ctx.toast(e.message, 'error')); }, [rid]);
+  if (!rep) return html`<div style=${cardS + ';padding:40px;text-align:center;color:var(--ink-2)'}>กำลังคำนวณ…</div>`;
+  const cat = (ctx.meta.courses || []).map(c => c.tag);
+  const rows = rep.rows.slice().sort((a, b) => order === 'weak' ? a.pct - b.pct : cat.indexOf(a.tag) - cat.indexOf(b.tag));
+  const exportCsv = () => downloadBlob('course-report-' + rid + '.csv', csvBlob([['ตัวย่อ', 'รหัสวิชา', 'ชื่อวิชา', 'จำนวนข้อที่ออก', 'จำนวนครั้งที่ตอบ', 'ตอบถูก', 'ตอบถูก %', 'ผู้สอบ']].concat(rows.map(r => [r.tag, r.code, r.name, r.questions, r.items, r.correct, r.pct.toFixed(1), r.students]))));
+  const th = 'padding:10px;font-weight:600;color:var(--ink-2);font-size:13px;white-space:nowrap';
+  return html`<div style=${cardS + ';overflow:hidden'}>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:260px;display:flex;flex-direction:column;line-height:1.5"><strong>ผลรายวิชาจากข้อสอบที่ติด tag</strong>
+        <span style="font-size:13px;color:var(--ink-2)">จากผู้ที่ส่งข้อสอบแล้ว ${rep.submitted} คน · ข้อที่ติดหลายวิชานับให้ทุกวิชา${rep.untagged ? ' · ไม่นับข้อที่ยังไม่ติด tag ' + rep.untagged + ' ครั้งที่ตอบ' : ''}</span></div>
+      <select aria-label="เรียงลำดับ" value=${order} onChange=${e => setOrder(e.target.value)} style=${inp + ';height:40px'}><option value="weak">อ่อนที่สุดก่อน</option><option value="catalog">ตามลำดับรายวิชา</option></select>
+      <button onClick=${exportCsv} disabled=${!rows.length} class="h-surface2" style=${bFill + ';padding:0 14px;font-size:14px'}>ส่งออก CSV</button>
+    </div>
+    ${rows.length ? html`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:860px">
+      <thead><tr style="background:var(--surface-2);text-align:left"><th style=${th + ';padding-left:16px'}>รายวิชา</th><th style=${th + ';text-align:right'}>ข้อที่ออก</th><th style=${th + ';text-align:right'}>ครั้งที่ตอบ</th><th style=${th + ';width:300px'}>ตอบถูก</th><th style=${th + ';text-align:right'}>ผู้สอบ</th><th style=${th}>หมายเหตุ</th></tr></thead>
+      <tbody>${rows.map(r => { const low = r.pct < LOW_PCT; return html`<tr style=${`border-top:1px solid var(--line);background:${low ? 'var(--warn-soft)' : 'transparent'}`}>
+        <td style="padding:10px 10px 10px 16px"><div style="display:flex;align-items:center;gap:8px"><${TagChip} c=${r} /><span style="display:flex;flex-direction:column;line-height:1.4"><span style=${MONO + ';font-size:12px;color:var(--ink-3)'}>${r.code}</span><span>${r.name}</span></span></div></td>
+        <td style=${'padding:10px;text-align:right;' + MONO}>${r.questions}</td>
+        <td style=${'padding:10px;text-align:right;' + MONO}>${r.items}</td>
+        <td style="padding:10px"><div style="display:flex;align-items:center;gap:10px">
+          <span role="img" aria-label=${'ตอบถูก ' + r.pct.toFixed(1) + ' เปอร์เซ็นต์'} style="flex:1;height:10px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line-strong);overflow:hidden"><span style=${`display:block;height:100%;width:${r.pct}%;background:${low ? 'var(--avg)' : 'var(--primary)'}`}></span></span>
+          <span style="width:110px;text-align:right;white-space:nowrap"><strong>${r.pct.toFixed(1)}%</strong> <span style="color:var(--ink-3);font-size:12px">${r.correct}/${r.items}</span></span></div></td>
+        <td style=${'padding:10px;text-align:right;' + MONO}>${r.students}</td>
+        <td style="padding:10px;font-size:13px;white-space:nowrap">${low && html`<span style="color:var(--warn);font-weight:700">⚠ ควรเสริม</span>`}${low && r.items < FEW_ITEMS && ' · '}${r.items < FEW_ITEMS && html`<span style="color:var(--ink-3)">ข้อมูลน้อย</span>`}</td>
+      </tr>`; })}</tbody></table></div>`
+    : html`<div style="padding:40px;text-align:center;color:var(--ink-2)">${rep.submitted ? 'ข้อสอบที่ผู้สอบได้รับยังไม่มีการติด tag รายวิชา ติด tag ได้ที่แท็บคลังข้อสอบ' : 'ยังไม่มีผู้ส่งข้อสอบในรอบนี้'}</div>`}
+    <div style="padding:10px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)">⚠ ควรเสริม = ตอบถูกต่ำกว่า ${LOW_PCT}% · ข้อมูลน้อย = ตอบรวมไม่ถึง ${FEW_ITEMS} ครั้ง ผลอาจคลาดเคลื่อน · คิดจากเฉลยปัจจุบันในคลังข้อสอบ</div>
+  </div>`;
 }
 
 function Detail({ round, row, onClose }) {
@@ -612,6 +729,13 @@ function Detail({ round, row, onClose }) {
           <${SpiderChart} axes=${res.rows.map(x => x.short)} values=${res.rows.map(x => x.score)} avg=${res.rows.map(x => x.avg)} />
           <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)"><span style="display:flex;align-items:center;gap:6px"><span style="width:24px;border-top:3px solid var(--primary)"></span>ผู้สอบคนนี้</span><span style="display:flex;align-items:center;gap:6px"><span style="width:24px;border-top:3px dashed var(--avg)"></span>ค่าเฉลี่ยทั้งรอบ</span></div>
           <div style="display:flex;flex-direction:column;font-size:14px">${res.rows.map(x => html`<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span>${x.name}</span><span style="color:var(--ink-2)">ถูก ${x.correct}/${x.total} · <strong style="color:var(--ink)">${x.score.toFixed(1)}</strong> · ระดับ ${x.level}</span></div>`)}</div>
+        </div>`}
+        ${d && d.courses && d.courses.length > 0 && html`<div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px">
+          <strong>ผลรายวิชา (tag)</strong>
+          ${d.courses.slice().sort((a, b) => a.pct - b.pct).map(c => html`<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--line);font-size:14px">
+            <${TagChip} c=${c} /><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)">${c.name}</span>
+            <span style="white-space:nowrap">ถูก <strong>${c.correct}/${c.items}</strong>${c.pct < LOW_PCT && html` <span style="color:var(--warn);font-weight:700">⚠</span>`}</span></div>`)}
+          <span style="font-size:12px;color:var(--ink-3)">แต่ละวิชามีเพียงไม่กี่ข้อ ใช้ประกอบการให้คำปรึกษา ไม่ใช่คะแนนทางการ</span>
         </div>`}
         <div style="display:flex;flex-direction:column;gap:8px">
           <strong>ประวัติการออกนอกหน้าจอ (${row.leaves} ครั้ง)</strong>
@@ -702,6 +826,7 @@ function App() {
     ${ov && ov.kind === 'import' && html`<${ImportRoster} ctx=${ctx} round=${ov.round} onClose=${close} />`}
     ${ov && ov.kind === 'editor' && html`<${Editor} ctx=${ctx} id=${ov.id} onClose=${close} />`}
     ${ov && ov.kind === 'qimport' && html`<${QImport} ctx=${ctx} onClose=${close} />`}
+    ${ov && ov.kind === 'courses' && html`<${CoursesModal} ctx=${ctx} onClose=${close} />`}
     ${ov && ov.kind === 'qexport' && html`<${QExport} ctx=${ctx} onClose=${close} />`}
     ${ov && ov.kind === 'detail' && html`<${Detail} round=${ov.round} row=${ov.row} onClose=${close} />`}
     ${ov && ov.kind === 'refcheck' && html`<${RefCheck} onClose=${close} />`}

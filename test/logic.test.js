@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { score5, level, isCorrect, scoreAttempt, buildSet, newExamCode, newRef } from '../server/logic.js';
+import { score5, level, isCorrect, scoreAttempt, buildSet, newExamCode, newRef, courseBreakdown } from '../server/logic.js';
 
 test('score5 / level', () => {
   assert.equal(score5(9, 10), 4.5);
@@ -39,4 +39,16 @@ test('buildSet picks per group and shuffles option order', () => {
 test('codes and refs have the expected shape', () => {
   assert.match(newExamCode(), /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
   assert.match(newRef('R1-2569'), /^PSRU-R125-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+});
+
+test('courseBreakdown counts each tag of a question, per answered item', () => {
+  const ok = [{ correct: true }, { correct: false }];
+  const qs = { a: { options: ok, tags: ['db', 'algo'] }, b: { options: ok, tags: ['db'] }, c: { options: ok, tags: [] } };
+  const atts = [
+    { sid: '1', question_ids: ['a', 'b', 'c'], answers: { a: [0], b: [1], c: [0] } },
+    { sid: '2', question_ids: ['a', 'b'], answers: { a: [1], b: [0] } }
+  ];
+  const r = courseBreakdown(atts, qs, [{ tag: 'algo', code: 'X1', name: 'A' }, { tag: 'db', code: 'X2', name: 'D' }, { tag: 'net', code: 'X3', name: 'N' }]);
+  assert.equal(r.untagged, 1);
+  assert.deepEqual(r.rows.map(x => [x.tag, x.questions, x.items, x.correct, x.students, x.pct]), [['algo', 1, 2, 1, 2, 50], ['db', 2, 4, 2, 2, 50]]);
 });

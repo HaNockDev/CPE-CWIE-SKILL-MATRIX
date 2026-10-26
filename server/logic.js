@@ -68,3 +68,25 @@ export function thDateTime(ms) {
   const time = new Intl.DateTimeFormat('th-TH', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
   return date + ' เวลา ' + time + ' น.';
 }
+
+// Per-course (tag) analysis over submitted attempts. A question with several tags counts for each of them.
+// Returns one row per course that appeared in at least one attempt, plus how many answered items had no tag.
+export function courseBreakdown(attempts, questionsById, courses) {
+  const acc = Object.fromEntries(courses.map(c => [c.tag, { tag: c.tag, code: c.code, name: c.name, questions: new Set(), items: 0, correct: 0, students: new Set() }]));
+  let untagged = 0;
+  for (const a of attempts) {
+    for (const id of a.question_ids) {
+      const q = questionsById[id];
+      if (!q) continue;
+      const ok = isCorrect(q, (a.answers || {})[id]);
+      const tags = (q.tags || []).filter(t => acc[t]);
+      if (!tags.length) { untagged++; continue; }
+      for (const t of tags) { const r = acc[t]; r.questions.add(id); r.items++; r.correct += ok ? 1 : 0; r.students.add(a.sid); }
+    }
+  }
+  const rows = Object.values(acc).filter(r => r.items).map(r => ({
+    tag: r.tag, code: r.code, name: r.name, questions: r.questions.size, items: r.items, correct: r.correct,
+    students: r.students.size, pct: Math.round((r.correct / r.items) * 1000) / 10
+  }));
+  return { rows, untagged };
+}

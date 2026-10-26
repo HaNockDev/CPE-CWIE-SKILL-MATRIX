@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import { db, init, all, one, run, J, dbUrl, isEphemeral } from './db.js';
 import { sign, verify, requireRole, adminPassword, DEFAULT_ADMIN_PASSWORD } from './auth.js';
 import { sendMail } from './mailer.js';
-import { LEVEL_NAMES, newExamCode, newRef, buildSet, scoreAttempt, thDateTime } from './logic.js';
+import { LEVEL_NAMES, newExamCode, newRef, buildSet, scoreAttempt, thDateTime, courseBreakdown } from './logic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GRACE_MS = 15_000; // late answers tolerated for network latency
@@ -23,6 +23,15 @@ const baseUrl = req => process.env.PUBLIC_URL || ((req.headers['x-forwarded-prot
 // ---------- data helpers ----------
 async function groups() { return all('SELECT key, name, short FROM groups ORDER BY sort, key'); }
 async function courses() { return all('SELECT tag, code, name FROM courses ORDER BY sort, code'); }
+async function submittedAttempts(rid, sid) {
+  return (await all("SELECT * FROM attempts WHERE round_id = ? AND status = 'submitted'" + (sid ? ' AND sid = ?' : ''), sid ? [rid, sid] : [rid])).map(parseAttempt);
+}
+async function courseReport(rid, sid) {
+  const atts = await submittedAttempts(rid, sid);
+  const ids = [...new Set(atts.flatMap(a => a.question_ids))], qs = {};
+  for (let i = 0; i < ids.length; i += 400) Object.assign(qs, await questionsByIds(ids.slice(i, i + 400)));
+  return { ...courseBreakdown(atts, qs, await courses()), submitted: atts.length };
+}
 
 function parseQ(r) {
   return { id: r.id, group_key: r.group_key, type: r.type, text: r.text, image: r.image || null, options: J(r.options, []), explain: r.explain || '', difficulty: Number(r.difficulty), points: Number(r.points), tags: J(r.tags, []) };
@@ -294,10 +303,16 @@ app.post('/api/admin/login', wrap(async (req, res) => {
 const admin = express.Router();
 admin.use(requireRole('admin'));
 
+async function courseUsage() {
+  const cs = await courses(), used = {};
+  for (const r of await all("SELECT tags FROM questions WHERE tags != '[]'")) for (const t of J(r.tags, [])) used[t] = (used[t] || 0) + 1;
+  return cs.map(c => ({ ...c, used: used[c.tag] || 0 }));
+}
+
 admin.get('/meta', wrap(async (req, res) => {
   const gs = await all('SELECT g.key, g.name, g.short, (SELECT COUNT(*) FROM questions q WHERE q.group_key = g.key) AS bank FROM groups g ORDER BY g.sort');
   res.json({
-    groups: gs.map(g => ({ ...g, bank: Number(g.bank) })), courses: await courses(),
+    groups: gs.map(g => ({ ...g, bank: Number(g.bank) })), courses: await courseUsage(),
     defaultPassword: adminPassword() === DEFAULT_ADMIN_PASSWORD, ephemeral: isEphemeral,
     db: dbUrl.startsWith('file:') ? 'sqlite-file' : 'libsql-remote', smtp: !!process.env.SMTP_HOST, emailDomain: EMAIL_DOMAIN
   });
@@ -470,6 +485,61 @@ admin.post('/questions/:id/copy', wrap(async (req, res) => {
   await upsertQuestion(id, q);
   res.json({ id });
 }));
+// ---- courses (tag catalogue) ----
+const TAG_RE = /^[a-z0-9][a-z0-9_-]{1,23}$/;
+function courseInput(b) {
+  const code = String(b.code || '').trim().toUpperCase(), name = String(b.name || '').trim();
+  if (!code || code.length > 20) return { error: 'ใส่รหัสวิชา (ไม่เกิน 20 ตัวอักษร)' };
+  if (!name) return { error: 'ใส่ชื่อวิชา' };
+  return { code, name };
+}
+admin.post('/courses', wrap(async (req, res) => {
+  const tag = String(req.body.tag || '').trim().toLowerCase(), v = courseInput(req.body);
+  if (!TAG_RE.test(tag)) return bad(res, 'invalid', { message: 'ตัวย่อใช้ a–z, 0–9, - หรือ _ ยาว 2–24 ตัว และขึ้นต้นด้วยตัวอักษรหรือตัวเลข' });
+  if (v.error) return bad(res, 'invalid', { message: v.error });
+  if (await one('SELECT 1 FROM courses WHERE tag = ?', [tag])) return bad(res, 'invalid', { message: 'มีตัวย่อ ' + tag + ' อยู่แล้ว' });
+  const max = await one('SELECT COALESCE(MAX(sort), 0) AS m FROM courses');
+  await run('INSERT INTO courses (tag, code, name, sort) VALUES (?,?,?,?)', [tag, v.code, v.name, Number(max.m) + 1]);
+  res.json({ tag });
+}));
+admin.put('/courses/order', wrap(async (req, res) => {
+  const tags = Array.isArray(req.body.tags) ? req.body.tags.map(String) : [];
+  await db.batch(tags.map((t, i) => ({ sql: 'UPDATE courses SET sort = ? WHERE tag = ?', args: [i + 1, t] })), 'write');
+  res.json({ ok: true });
+}));
+admin.put('/courses/:tag', wrap(async (req, res) => {
+  const v = courseInput(req.body);
+  if (v.error) return bad(res, 'invalid', { message: v.error });
+  const r = await run('UPDATE courses SET code = ?, name = ? WHERE tag = ?', [v.code, v.name, req.params.tag]);
+  if (!r.rowsAffected) return bad(res, 'not_found', {}, 404);
+  res.json({ ok: true });
+}));
+admin.delete('/courses/:tag', wrap(async (req, res) => {
+  const tag = req.params.tag, stmts = [];
+  for (const q of await all("SELECT id, tags FROM questions WHERE tags LIKE ?", ['%"' + tag + '"%'])) {
+    stmts.push({ sql: 'UPDATE questions SET tags = ? WHERE id = ?', args: [JSON.stringify(J(q.tags, []).filter(t => t !== tag)), q.id] });
+  }
+  stmts.push({ sql: 'DELETE FROM courses WHERE tag = ?', args: [tag] });
+  await db.batch(stmts, 'write');
+  res.json({ untagged: stmts.length - 1 });
+}));
+admin.post('/questions/bulk-tags', wrap(async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(String) : [];
+  const cs = await courses(), known = new Set(cs.map(c => c.tag));
+  const add = (req.body.add || []).filter(t => known.has(t)), remove = new Set(req.body.remove || []);
+  if (!ids.length || (!add.length && !remove.size)) return bad(res, 'invalid', { message: 'เลือกข้อสอบและรายวิชาก่อน' });
+  const stmts = [];
+  for (let i = 0; i < ids.length; i += 400) {
+    const chunk = ids.slice(i, i + 400);
+    for (const q of await all(`SELECT id, tags FROM questions WHERE id IN (${chunk.map(() => '?').join(',')})`, chunk)) {
+      const set = new Set(J(q.tags, []).filter(t => !remove.has(t)).concat(add));
+      stmts.push({ sql: 'UPDATE questions SET tags = ?, updated_at = ? WHERE id = ?', args: [JSON.stringify(cs.filter(c => set.has(c.tag)).map(c => c.tag)), Date.now(), q.id] });
+    }
+  }
+  for (let i = 0; i < stmts.length; i += 300) await db.batch(stmts.slice(i, i + 300), 'write');
+  res.json({ updated: stmts.length });
+}));
+
 admin.delete('/questions/:id', wrap(async (req, res) => {
   await run('DELETE FROM questions WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
@@ -593,11 +663,15 @@ admin.get('/results/:rid', wrap(async (req, res) => {
     })
   });
 }));
+admin.get('/results/:rid/courses', wrap(async (req, res) => {
+  if (!await getRound(req.params.rid)) return bad(res, 'not_found', {}, 404);
+  res.json(await courseReport(req.params.rid));
+}));
 admin.get('/results/:rid/:sid', wrap(async (req, res) => {
   const round = await getRound(req.params.rid);
   if (!round) return bad(res, 'not_found', {}, 404);
   const events = await all('SELECT at, kind, duration_ms FROM events WHERE round_id = ? AND sid = ? ORDER BY at', [round.id, req.params.sid]);
-  res.json({ result: await resultView(round, req.params.sid), events: events.map(e => ({ at: Number(e.at), kind: e.kind, durationMs: e.duration_ms != null ? Number(e.duration_ms) : null })) });
+  res.json({ result: await resultView(round, req.params.sid), courses: (await courseReport(round.id, req.params.sid)).rows, events: events.map(e => ({ at: Number(e.at), kind: e.kind, durationMs: e.duration_ms != null ? Number(e.duration_ms) : null })) });
 }));
 admin.post('/rounds/:id/publish', wrap(async (req, res) => {
   const round = await getRound(req.params.id);
