@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+:root,[data-theme="light"]{--bg:#f2f2f7;--surface:#ffffff;--surface-2:#f2f2f7;--fill:#ebebf0;--bar:rgba(255,255,255,.78);--line:#e0e0e5;--line-strong:#c7c7cc;--ink:#1d1d1f;--ink-2:#48484d;--ink-3:#6e6e73;--primary:#2b59d9;--primary-hover:#2149bb;--primary-ink:#ffffff;--primary-soft:#eaf0fd;--avg:#e07b00;--avg-ink:#9a5500;--ok:#1f7a3a;--ok-soft:#e4f5e8;--danger:#d70015;--danger-soft:#fdecee;--warn:#8a5d00;--warn-soft:#fff4d6;--warn-line:#f0d48a;--lock:#0a0a0c;--shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.06);--shadow-lg:0 20px 60px rgba(0,0,0,.18);--focus:0 0 0 2px #ffffff,0 0 0 5px #2b59d9;color-scheme:light}
+[data-theme="dark"]{--bg:#000000;--surface:#1c1c1e;--surface-2:#2c2c2e;--fill:#2c2c2e;--bar:rgba(28,28,30,.78);--line:#38383a;--line-strong:#48484a;--ink:#f5f5f7;--ink-2:#d1d1d6;--ink-3:#98989f;--primary:#6f95ff;--primary-hover:#8aabff;--primary-ink:#0a1226;--primary-soft:#1a2547;--avg:#ff9f0a;--avg-ink:#ffb340;--ok:#30d158;--ok-soft:#0f2e19;--danger:#ff6961;--danger-soft:#3a1517;--warn:#ffd60a;--warn-soft:#332b0a;--warn-line:#6b5a10;--lock:#000000;--shadow:0 1px 2px rgba(0,0,0,.5);--shadow-lg:0 20px 60px rgba(0,0,0,.6);--focus:0 0 0 2px #000000,0 0 0 5px #6f95ff;color-scheme:dark}
+html,body{margin:0;padding:0;background:#e5e5ea}*{box-sizing:border-box}
+:focus-visible{outline:none;box-shadow:var(--focus)!important}
+button,input{font-family:inherit}
+a{color:#2b59d9}a:hover{color:#2149bb}
+@keyframes psru-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div data-theme="light" style="width:2800px;padding:64px;display:flex;flex-direction:column;gap:72px;background:#e5e5ea;color:var(--ink);font-family:'Noto Sans Thai',sans-serif;line-height:1.6">
+  <section data-screen-label="00 ภาพรวม" style="display:flex;flex-direction:column;gap:12px;max-width:1400px">
+    <span style="font-size:16px;font-weight:600;color:var(--primary)">Design handoff · ระบบสอบออนไลน์ PSRU (วัดความพร้อมก่อนสหกิจ)</span>
+    <h1 style="margin:0;font-size:56px;font-weight:700;line-height:1.3">บอร์ดออกแบบ: หน้าจอ สถานะ และสเปก</h1>
+    <p style="margin:0;font-size:20px;color:var(--ink-2);max-width:1100px">ทุกเฟรมในบอร์ดนี้คือต้นแบบจริงที่ตรึงสถานะไว้ เปิดใช้งานแบบกดได้ที่ <a href="ExamStudent.dc.html">ExamStudent.dc.html</a> (นักศึกษา) และ <a href="ExamAdmin.dc.html">ExamAdmin.dc.html</a> (อาจารย์) ข้อมูลตัวอย่าง ชื่อกลุ่มวิชา และจำนวนข้ออยู่ใน <code style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace">config.js</code> ส่วนสลับธีมสว่าง/มืดใช้แผง Tweaks ของแต่ละไฟล์</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:15px">
+      <sc-for list="{{ toc }}" as="t"><a href="{{ t.href }}" style="padding:6px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--ink);font-weight:600">{{ t.label }}</a></sc-for>
+    </div>
+  </section>
+<section id="flow" data-screen-label="01 Flow" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">แผนผังการใช้งาน</h2>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <span style="font-size:18px;font-weight:700;color:var(--ink-2)">นักศึกษา (มือถือเป็นหลัก)</span>
+    <div style="display:flex;align-items:stretch;gap:0">
+      <sc-for list="{{ flowStudent }}" as="f" hint-placeholder-count="5">
+        <div style="display:flex;align-items:center">
+          <div style="width:360px;background:var(--surface);border:none;border-radius:20px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow);align-self:stretch">
+            <span style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--primary)">{{ f.code }}</span>
+            <span style="font-size:20px;font-weight:700">{{ f.title }}</span>
+            <span style="font-size:15px;color:var(--ink-2)">{{ f.desc }}</span>
+            <sc-if value="{{ f.hasBranch }}"><span style="margin-top:4px;font-size:14px;padding:8px 10px;border-radius:8px;background:var(--warn-soft);color:var(--ink)">↳ {{ f.branch }}</span></sc-if>
+          </div>
+          <sc-if value="{{ f.arrow }}"><span style="width:56px;text-align:center;font-size:28px;color:var(--ink-3)">→</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <span style="font-size:18px;font-weight:700;color:var(--ink-2)">อาจารย์ / Admin (เดสก์ท็อป)</span>
+    <div style="display:flex;align-items:stretch">
+      <sc-for list="{{ flowAdmin }}" as="f" hint-placeholder-count="6">
+        <div style="display:flex;align-items:center">
+          <div style="width:300px;background:var(--surface);border:none;border-radius:20px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow);align-self:stretch">
+            <span style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--primary)">{{ f.code }}</span>
+            <span style="font-size:20px;font-weight:700">{{ f.title }}</span>
+            <span style="font-size:15px;color:var(--ink-2)">{{ f.desc }}</span>
+            <sc-if value="{{ f.hasBranch }}"><span style="margin-top:4px;font-size:14px;padding:8px 10px;border-radius:8px;background:var(--surface-2)">↳ {{ f.branch }}</span></sc-if>
+          </div>
+          <sc-if value="{{ f.arrow }}"><span style="width:48px;text-align:center;font-size:28px;color:var(--ink-3)">→</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section id="tokens" data-screen-label="02 Tokens" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">Design tokens</h2>
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:32px;align-items:start">
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);overflow:hidden">
+      <div style="display:grid;grid-template-columns:200px 150px 150px 1fr;gap:16px;padding:12px 20px;background:var(--surface-2);font-size:14px;font-weight:600;color:var(--ink-2)"><span>ตัวแปร</span><span>สว่าง</span><span>มืด</span><span>ใช้กับ</span></div>
+      <sc-for list="{{ colors }}" as="c" hint-placeholder-count="12">
+        <div style="display:grid;grid-template-columns:200px 150px 150px 1fr;gap:16px;padding:10px 20px;border-top:1px solid var(--line);align-items:center;font-size:14px">
+          <code style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:13px">{{ c.name }}</code>
+          <span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(0,0,0,.12);background:{{ c.l }};flex:none"></span><span style="display:flex;flex-direction:column;line-height:1.3"><span style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:12px">{{ c.l }}</span><span style="font-size:11px;color:var(--ink-3)">{{ c.crL }}</span></span></span>
+          <span style="display:flex;align-items:center;gap:8px"><span style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(0,0,0,.12);background:{{ c.d }};flex:none"></span><span style="display:flex;flex-direction:column;line-height:1.3"><span style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:12px">{{ c.d }}</span><span style="font-size:11px;color:var(--ink-3)">{{ c.crD }}</span></span></span>
+          <span style="color:var(--ink-2)">{{ c.use }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:18px;font-weight:700">ตัวอักษร · Noto Sans Thai</span>
+        <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;align-items:baseline;border-top:1px solid var(--line);padding-top:10px">
+            <span style="display:flex;flex-direction:column;line-height:1.35"><code style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ t.t }}</code><span style="font-size:12px;color:var(--ink-3)">{{ t.spec }}</span></span>
+            <span style="display:flex;flex-direction:column"><span style="font-size:{{ t.size }};font-weight:{{ t.w }};line-height:1.5">ข้อสอบวัดความพร้อม ปู่ ญี่ปุ่น 0123</span><span style="font-size:13px;color:var(--ink-3)">{{ t.use }}</span></span>
+          </div>
+        </sc-for>
+        <div style="display:grid;grid-template-columns:130px 1fr;gap:16px;align-items:baseline;border-top:1px solid var(--line);padding-top:10px"><span style="display:flex;flex-direction:column;line-height:1.35"><code style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:13px;font-weight:600">mono</code><span style="font-size:12px;color:var(--ink-3)">IBM Plex Mono 19–36 · 600</span></span><span style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:26px;font-weight:600;letter-spacing:2px">K7PQ-3MXA · 59:59</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+        <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:18px;font-weight:700">ระยะห่าง (ฐาน 4)</span>
+          <sc-for list="{{ spacing }}" as="s"><div style="display:flex;align-items:center;gap:12px;font-size:13px"><code style="width:44px;font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace">{{ s.v }}</code><span style="height:14px;width:{{ s.w }};background:var(--primary);border-radius:2px"></span></div></sc-for>
+        </div>
+        <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:18px;font-weight:700">มุมโค้ง</span>
+          <sc-for list="{{ radii }}" as="r"><div style="display:flex;align-items:center;gap:12px;font-size:13px"><span style="width:40px;height:28px;border:2px solid var(--primary);border-radius:{{ r.rr }};flex:none"></span><code style="width:56px;font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace">{{ r.r }}</code><span style="color:var(--ink-2)">{{ r.use }}</span></div></sc-for>
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:18px;font-weight:700">เงาและโฟกัส</span>
+        <div style="display:flex;gap:24px;padding:8px">
+          <sc-for list="{{ shadows }}" as="s"><div style="flex:1;display:flex;flex-direction:column;gap:10px"><div style="height:72px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:{{ s.v }}"></div><code style="font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:13px">{{ s.n }}</code><span style="font-size:13px;color:var(--ink-2)">{{ s.use }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="components" data-screen-label="03 Components" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">คอมโพเนนต์</h2>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;align-items:start">
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:16px">
+      <span style="font-size:18px;font-weight:700">ปุ่ม</span>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+        <button style="height:52px;padding:0 22px;border:none;border-radius:14px;background:var(--primary);color:var(--primary-ink);font-size:16px;font-weight:600">หลัก</button>
+        <button style="height:52px;padding:0 22px;border:none;border-radius:12px;background:var(--primary-hover);color:var(--primary-ink);font-size:16px;font-weight:600">หลัก · hover</button>
+        <button style="height:52px;padding:0 22px;border:none;border-radius:14px;background:var(--primary);color:var(--primary-ink);font-size:16px;font-weight:600;box-shadow:var(--focus)">หลัก · focus</button>
+        <button style="height:52px;padding:0 22px;border:none;border-radius:14px;background:var(--primary);color:var(--primary-ink);font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;opacity:.8"><span style="width:16px;height:16px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:psru-spin .8s linear infinite"></span>กำลังตรวจสอบ…</button>
+        <button style="height:52px;padding:0 22px;border:none;border-radius:14px;background:var(--fill);color:var(--ink);font-size:16px;font-weight:600">รอง</button>
+        <button style="height:52px;padding:0 22px;border:none;border-radius:14px;background:var(--fill);color:var(--ink);font-size:16px;font-weight:600;opacity:.45">ปิดใช้งาน</button>
+        <button style="height:44px;padding:0 14px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:14px;font-weight:600">ข้อความ (ghost)</button>
+        <button style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--danger);color:var(--surface);font-size:15px;font-weight:600">ลบรอบสอบ</button>
+        <button style="height:52px;padding:0 22px;border:none;border-radius:12px;background:var(--ok);color:#ffffff;font-size:16px;font-weight:600">ส่งข้อสอบ</button>
+      </div>
+      <span style="font-size:13px;color:var(--ink-3)">นักศึกษา 52–56px · Admin 44px · มุม 10–12px · ปุ่มหลักหนึ่งปุ่มต่อหนึ่งพื้นที่</span>
+    </div>
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-size:18px;font-weight:700">ช่องกรอก</span>
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:15px;font-weight:600">ปกติ</span><input placeholder="รหัสนักศึกษา@psru.ac.th" style="height:52px;padding:0 14px;font-size:17px;border-radius:12px;border:1.5px solid transparent;background:var(--fill);color:var(--ink)"></label>
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:15px;font-weight:600">โฟกัส</span><input value="6512345678@psru.ac.th" style="height:52px;padding:0 14px;font-size:17px;border-radius:10px;border:1.5px solid var(--primary);box-shadow:var(--focus);background:var(--surface);color:var(--ink)"></label>
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-size:15px;font-weight:600">ผิดพลาด</span><input value="K7PQ-3MXB" style="height:56px;padding:0 14px;font-size:22px;font-weight:600;letter-spacing:3px;font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;border-radius:10px;border:1.5px solid var(--danger);background:var(--surface);color:var(--ink)"><span style="font-size:14px;color:var(--danger);font-weight:600">⚠ รหัสการสอบไม่ถูกต้อง</span></label>
+      <span style="font-size:13px;color:var(--ink-3)">รหัสการสอบ: mono 22px · แปลงเป็นตัวพิมพ์ใหญ่และเติม “-” หลังตัวที่ 4 อัตโนมัติ</span>
+    </div>
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:18px;font-weight:700">การ์ดตัวเลือก</span>
+      <div style="display:flex;align-items:center;gap:14px;min-height:60px;padding:12px 14px;border-radius:14px;border:2px solid var(--line);font-size:17px"><span style="width:36px;height:36px;border-radius:50%;border:2px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--ink-2)">A</span>ปกติ · radio</div>
+      <div style="display:flex;align-items:center;gap:14px;min-height:60px;padding:12px 14px;border-radius:14px;border:2px solid var(--primary);background:var(--primary-soft);font-size:17px"><span style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;font-weight:700">B</span><span style="flex:1">เลือกแล้ว · radio</span><span style="color:var(--primary);font-weight:700">✓</span></div>
+      <div style="display:flex;align-items:center;gap:14px;min-height:60px;padding:12px 14px;border-radius:14px;border:2px solid var(--primary);background:var(--primary-soft);font-size:17px"><span style="width:36px;height:36px;border-radius:9px;background:var(--primary);color:var(--primary-ink);display:flex;align-items:center;justify-content:center;font-weight:700">C</span><span style="flex:1">เลือกแล้ว · checkbox (มุมเหลี่ยม)</span><span style="color:var(--primary);font-weight:700">✓</span></div>
+      <span style="font-size:13px;color:var(--ink-3)">ข้อเดียว = วงกลม · หลายข้อ = สี่เหลี่ยมมุมมน · เลือกแล้วเปลี่ยน 3 อย่างพร้อมกัน: ขอบ พื้น และเครื่องหมาย ✓</span>
+    </div>
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-size:18px;font-weight:700">ชิปสถานะ</span>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>เปิดสอบอยู่</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>ยังไม่ถึงเวลา</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border-radius:999px;background:var(--surface-2);color:var(--ink-2);font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>ปิดแล้ว</span>
+        <span style="display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-2);font-size:13px">✓ เผยแพร่ผลแล้ว</span>
+        <span style="display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:13px;font-weight:600">⚠ ยังไม่เตรียม</span>
+        <span style="display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;background:var(--danger-soft);color:var(--danger);font-size:13px;font-weight:700">⚠ ออกนอกจอ 4 ครั้ง</span>
+      </div>
+      <span style="font-size:18px;font-weight:700;margin-top:6px">สถานะบันทึก · ตัวนับเวลา</span>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:13px">
+        <span style="display:flex;align-items:center;gap:5px;color:var(--ink-3)"><span style="width:11px;height:11px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:psru-spin .8s linear infinite"></span>กำลังบันทึก…</span>
+        <span style="color:var(--ok)">✓ บันทึกแล้ว</span>
+        <span style="color:var(--danger)">⚠ บันทึกไม่สำเร็จ กำลังลองใหม่</span>
+      </div>
+      <div style="display:flex;gap:12px">
+        <span style="display:flex;align-items:center;height:44px;padding:0 12px;border-radius:10px;background:var(--surface-2);font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:20px;font-weight:600">⏱ 42:17</span>
+        <span style="display:flex;align-items:center;height:44px;padding:0 12px;border-radius:10px;background:var(--danger);color:#ffffff;font-family:ui-monospace,'SF Mono','IBM Plex Mono',monospace;font-size:20px;font-weight:600">⏱ 04:12</span>
+      </div>
+    </div>
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-size:18px;font-weight:700">แถบความคืบหน้า · ระดับ</span>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--ink-3)">หน้าสอบ 4px (สีเขียว = สัดส่วนข้อที่ตอบแล้ว)</span><div style="height:4px;background:var(--surface-2)"><div style="height:100%;width:35%;background:var(--ok)"></div></div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:13px;color:var(--ink-2)">งานที่ใช้เวลา · กำลังเตรียมชุดข้อสอบ 62%</span><div style="height:6px;border-radius:3px;background:var(--surface-2)"><div style="height:100%;width:62%;border-radius:3px;background:var(--primary)"></div></div></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="display:flex;gap:3px"><span style="width:26px;height:10px;border-radius:2px;background:var(--primary)"></span><span style="width:26px;height:10px;border-radius:2px;background:var(--primary)"></span><span style="width:26px;height:10px;border-radius:2px;background:var(--primary)"></span><span style="width:26px;height:10px;border-radius:2px;background:var(--surface);border:1px solid var(--line-strong)"></span><span style="width:26px;height:10px;border-radius:2px;background:var(--surface);border:1px solid var(--line-strong)"></span></span><span style="font-size:14px;font-weight:600">ระดับ 3 · ปานกลาง</span></div>
+      <span style="font-size:13px;color:var(--ink-3)">ระดับ: 1 ต่ำ · 2 ค่อนข้างต่ำ · 3 ปานกลาง · 4 ค่อนข้างสูง · 5 สูง (แสดงทั้งช่องและข้อความ)</span>
+      <span style="font-size:18px;font-weight:700;margin-top:6px">ช่องในภาพรวม</span>
+      <div style="display:flex;gap:8px">
+        <span style="width:52px;height:48px;border-radius:10px;border:2px solid var(--ok);background:var(--ok-soft);display:flex;align-items:center;justify-content:center;font-weight:600">7<span style="color:var(--ok);font-size:11px">✓</span></span>
+        <span style="width:52px;height:48px;border-radius:10px;border:2px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:600">8</span>
+        <span style="width:52px;height:48px;border-radius:10px;border:2px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:600;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--primary)">9</span>
+      </div>
+    </div>
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-size:18px;font-weight:700">Toast · กล่องแจ้งเตือน</span>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:15px;font-weight:500;box-shadow:var(--shadow-lg)"><span style="color:#4cc784;font-weight:700">✓</span>คัดลอกเลขอ้างอิงแล้ว</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:15px;font-weight:500"><span style="color:#ffb020;font-weight:700">⚠</span>เหลือเวลาสอบ 5 นาที</div>
+      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--danger-soft);border:1px solid var(--danger);font-size:15px"><strong style="color:var(--danger)">⚠</strong><span><strong style="color:var(--danger)">ผิดพลาด</strong> · พื้นอ่อน + ขอบ + ไอคอน + หัวข้อ</span></div>
+      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--warn-soft);border:1px solid var(--warn-line);font-size:15px"><strong style="color:var(--warn)">⚠</strong><span><strong>ข้อควรระวัง</strong> · ยังไม่ได้ตอบ 2 ข้อ</span></div>
+      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--primary-soft);font-size:15px"><strong style="color:var(--primary)">i</strong><span><strong>ข้อมูล</strong> · ผลสอบยังไม่ประกาศ</span></div>
+      <span style="font-size:13px;color:var(--ink-3)">Toast แสดง 2.6 วินาที ใช้ role="status" · ตาราง modal และลิ้นชักดูในเฟรม Admin ด้านล่าง</span>
+    </div>
+  </div>
+</section>
+<section id="student" data-screen-label="04 Student screens" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:4px"><h2 style="margin:0;font-size:36px;font-weight:700">หน้าจอนักศึกษา · iPhone 402 × 874</h2><span style="font-size:17px;color:var(--ink-2)">ทุกสถานะของ S1–S5 รวมธีมมืด · หน้าทำข้อสอบไม่มีเมนู ลิงก์ หรือโลโก้</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px 32px">
+    <sc-for list="{{ mobile }}" as="f" hint-placeholder-count="8">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+        <figcaption style="font-size:16px;font-weight:700">{{ f.label }}</figcaption>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ f.dark }}" hint-size="402px,874px">
+          <div data-theme="{{ f.theme }}" style="height:874px;padding:54px 0 28px;box-sizing:border-box;background:{{ f.wrapBg }}">
+            <dc-import name="ExamStudent" theme="{{ f.theme }}" screen="{{ f.screen }}" login-state="{{ f.loginState }}" overlay="{{ f.overlay }}" answered="{{ f.answered }}" current="{{ f.current }}" time-left="{{ f.timeLeft }}" save-state="{{ f.saveState }}" leaves="{{ f.leaves }}" resumed="{{ f.resumed }}" published="{{ f.published }}" ios-notice="{{ f.iosNotice }}" auto-reason="{{ f.autoReason }}" live="false" demo-hints="false" style="display:block;position:relative;width:100%;height:100%" hint-size="402px,792px"></dc-import>
+          </div>
+        </x-import>
+      </figure>
+    </sc-for>
+  </div>
+  <h3 style="margin:24px 0 0;font-size:28px;font-weight:700">เดสก์ท็อป 1280 × 800</h3>
+  <div style="display:flex;flex-wrap:wrap;gap:40px 32px">
+    <sc-for list="{{ desktop }}" as="f" hint-placeholder-count="4">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+        <figcaption style="font-size:16px;font-weight:700">{{ f.label }}</figcaption>
+        <dc-import name="ExamStudent" layout="desktop" theme="{{ f.theme }}" screen="{{ f.screen }}" overlay="{{ f.overlay }}" save-state="{{ f.saveState }}" leaves="{{ f.leaves }}" answered="{{ f.answered }}" current="{{ f.current }}" time-left="{{ f.timeLeft }}" live="false" demo-hints="false" style="display:block;position:relative;width:1280px;height:800px;border-radius:12px;overflow:hidden;border:1px solid #c3cad6;box-shadow:0 8px 30px rgba(16,24,40,.12)" hint-size="1280px,800px"></dc-import>
+      </figure>
+    </sc-for>
+  </div>
+</section>
+
+<section id="admin" data-screen-label="05 Admin screens" style="display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:4px"><h2 style="margin:0;font-size:36px;font-weight:700">หน้าจอ Admin · 1280 × 800 (ย่อ 60%)</h2><span style="font-size:17px;color:var(--ink-2)">เมนูหลัก 3 แท็บ: รอบสอบ / คลังข้อสอบ / ผลสอบ · ซูมเข้าเพื่อดูรายละเอียด</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px 32px">
+    <sc-for list="{{ admin }}" as="f" hint-placeholder-count="6">
+      <figure style="margin:0;display:flex;flex-direction:column;gap:10px">
+        <figcaption style="font-size:16px;font-weight:700">{{ f.label }}</figcaption>
+        <div style="width:768px;height:480px;overflow:hidden;border-radius:10px;border:1px solid #c3cad6;box-shadow:0 8px 30px rgba(16,24,40,.12);background:#ffffff">
+          <div style="width:1280px;height:800px;transform:scale(.6);transform-origin:0 0">
+            <dc-import name="ExamAdmin" theme="{{ f.theme }}" tab="{{ f.tab }}" overlay="{{ f.overlay }}" empty="{{ f.empty }}" loading="{{ f.loading }}" style="display:block;position:relative;width:1280px;height:800px" hint-size="1280px,800px"></dc-import>
+          </div>
+        </div>
+      </figure>
+    </sc-for>
+  </div>
+</section>
+<section id="spider" data-screen-label="06 Spider chart" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">Spider chart</h2>
+  <div style="display:grid;grid-template-columns:560px 1fr;gap:40px;align-items:start">
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:14px">
+      <span style="font-size:14px;color:var(--ink-3)">ขนาดจริงบนจอ 360px (กรอบประ = พื้นที่ 328px หลังหัก padding)</span>
+      <div style="width:328px;border:1px dashed var(--line-strong);align-self:center">
+        <dc-import name="SpiderChart" axes="{{ spiderMain.axes }}" values="{{ spiderMain.values }}" avg="{{ spiderMain.avg }}" style="width:100%" hint-size="328px,237px"></dc-import>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink-2)">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;border-top:3px solid var(--primary)"></span>คะแนนของคุณ (เส้นทึบ)</div>
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;border-top:3px dashed var(--avg)"></span>ค่าเฉลี่ยผู้สอบทั้งรอบ 128 คน (เส้นประ)</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);overflow:hidden">
+      <sc-for list="{{ spiderSpec }}" as="s" hint-placeholder-count="8"><div style="display:grid;grid-template-columns:180px 1fr;gap:20px;padding:12px 20px;border-bottom:1px solid var(--line);font-size:15px"><strong>{{ s.k }}</strong><span style="color:var(--ink-2)">{{ s.d }}</span></div></sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px">
+    <sc-for list="{{ spiderVariants }}" as="v" hint-placeholder-count="6">
+      <div data-theme="{{ v.theme }}" style="width:400px;background:var(--surface);color:var(--ink);border-radius:16px;border:1px solid var(--line);padding:20px 24px;display:flex;flex-direction:column;gap:12px;filter:{{ v.filter }}">
+        <span style="font-size:16px;font-weight:700">{{ v.title }}</span>
+        <dc-import name="SpiderChart" axes="{{ v.axes }}" values="{{ v.values }}" avg="{{ v.avg }}" style="width:100%" hint-size="352px,254px"></dc-import>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="card" data-screen-label="07 Result card" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">การ์ดผลสอบ · 900 × 1250</h2>
+  <div style="display:flex;gap:40px;align-items:flex-start">
+    <dc-import name="ResultCard" style="display:block;width:900px;height:1250px;box-shadow:0 8px 30px rgba(16,24,40,.14)" hint-size="900px,1250px"></dc-import>
+    <div style="display:flex;flex-direction:column;gap:24px;width:620px">
+      <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);overflow:hidden">
+        <sc-for list="{{ cardSpec }}" as="s" hint-placeholder-count="8"><div style="display:grid;grid-template-columns:140px 1fr;gap:16px;padding:12px 20px;border-bottom:1px solid var(--line);font-size:15px"><strong>{{ s.k }}</strong><span style="color:var(--ink-2)">{{ s.d }}</span></div></sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:16px;font-weight:700">ตัวอย่างพิมพ์ขาวดำ</span>
+        <div style="width:450px;height:625px;overflow:hidden;border:1px solid var(--line-strong);filter:grayscale(1)">
+          <div style="width:900px;height:1250px;transform:scale(.5);transform-origin:0 0"><dc-import name="ResultCard" style="display:block;width:900px;height:1250px" hint-size="900px,1250px"></dc-import></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="copy" data-screen-label="08 Copy" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">ข้อความ (copy)</h2>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;max-width:2200px">
+    <sc-for list="{{ copy }}" as="c" hint-placeholder-count="4">
+      <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:18px;font-weight:700">{{ c.group }}</span>
+        <sc-for list="{{ c.items }}" as="i"><div style="font-size:16px;padding:10px 0;border-top:1px solid var(--line)">{{ i }}</div></sc-for>
+      </div>
+    </sc-for>
+  </div>
+  <span style="font-size:15px;color:var(--ink-3)">ข้อความในอีเมลสรุปผลยังไม่รวมในรอบนี้</span>
+</section>
+
+<section id="dev" data-screen-label="09 Dev notes" style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:36px;font-weight:700">หมายเหตุสำหรับนักพัฒนา</h2>
+  <div style="background:var(--surface);border-radius:20px;border:none;box-shadow:var(--shadow);overflow:hidden;max-width:1800px">
+    <sc-for list="{{ dev }}" as="d" hint-placeholder-count="10"><div style="display:grid;grid-template-columns:260px 1fr;gap:24px;padding:16px 24px;border-bottom:1px solid var(--line);font-size:16px"><strong>{{ d.k }}</strong><span style="color:var(--ink-2)">{{ d.d }}</span></div></sc-for>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() { if (!window.PSRU_CONFIG) this.t = setInterval(() => { if (window.PSRU_CONFIG) { clearInterval(this.t); this.forceUpdate(); } }, 50); }
+  componentWillUnmount() { clearInterval(this.t); }
+  lum(hex) { const c = hex.replace('#', '').match(/../g).map(h => { const v = parseInt(h, 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  cr(a, b) { const A = this.lum(a), B = this.lum(b); return ((Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05)).toFixed(1) + ':1'; }
+  renderVals() {
+    const toc = [['#flow', 'แผนผังการใช้งาน'], ['#tokens', 'Design tokens'], ['#components', 'คอมโพเนนต์'], ['#student', 'หน้าจอนักศึกษา'], ['#admin', 'หน้าจอ Admin'], ['#spider', 'Spider chart'], ['#card', 'การ์ดผลสอบ'], ['#copy', 'ข้อความ'], ['#dev', 'หมายเหตุนักพัฒนา']].map(([href, label]) => ({ href, label }));
+    return Object.assign({ toc }, this.flowVals(), this.tokenVals(), this.frameVals(), this.specVals());
+  }
+  flowVals() {
+    const S = [
+      ['S1', 'เข้าสู่ระบบ', 'อีเมล @psru.ac.th · รหัสนักศึกษา · รหัสการสอบ', 'ผิดพลาด 5 กรณี: แสดงข้อความเฉพาะ อยู่หน้าเดิม'],
+      ['S2', 'ยืนยันก่อนสอบ', 'ชื่อ-สกุลจากรายชื่อ · ข้อมูลรอบ · ข้อปฏิบัติ', 'เคยเริ่มแล้ว: ปุ่มเป็น “กลับเข้าสอบต่อ” เวลาเดินต่อ'],
+      ['S3', 'ทำข้อสอบ', 'หน้าละ 1 ข้อ · บันทึกอัตโนมัติ · ภาพรวม', 'ออกนอกจอ: บล็อกเต็มจอ · เกินกำหนดหรือหมดเวลา: ส่งอัตโนมัติ'],
+      ['S4', 'ส่งเรียบร้อย', 'เวลาที่ส่ง · จำนวนข้อที่ตอบ', 'ยังไม่ประกาศผล: อธิบายว่ากลับมาดูด้วยรหัสเดิม'],
+      ['S5', 'ผลการสอบ', 'Spider chart · ระดับรายกลุ่ม · เลขอ้างอิง', 'ดาวน์โหลดการ์ดผลสอบ · ส่งสรุปเข้าอีเมล']
+    ];
+    const A = [
+      ['A2', 'คลังข้อสอบ', 'เพิ่ม/แก้ไข หรือนำเข้า JSON', ''],
+      ['A1', 'สร้างรอบสอบ', 'เวลาเปิด–ปิด · จำนวนข้อต่อกลุ่ม', 'ตรวจจำนวนในคลังทันที'],
+      ['A1', 'นำเข้ารายชื่อ', 'วาง/ไฟล์ → ตรวจตัวอย่าง → สรุป', 'แถวที่ข้ามแสดงเหตุผล'],
+      ['A1', 'เตรียมชุดข้อสอบ', 'สุ่มรายบุคคล', 'แถบความคืบหน้าบนการ์ด'],
+      ['A1', 'วันสอบ: ฉายรหัส', 'ตัวอักษรใหญ่ อ่านจากหลังห้อง', 'สร้างรหัสใหม่ต้องยืนยัน'],
+      ['A3', 'ติดตาม → เผยแพร่ผล', 'สถานะ · แถวผิดปกติ · รายละเอียดรายคน', 'ตรวจเลขอ้างอิงจากการ์ด']
+    ];
+    const m = a => a.map(([code, title, desc, branch], i) => ({ code, title, desc, branch, hasBranch: !!branch, arrow: i < a.length - 1 }));
+    return { flowStudent: m(S), flowAdmin: m(A) };
+  }
+  tokenVals() {
+    const C = [["--bg","#f2f2f7","#000000","พื้นหลังหน้า (grouped background)"],["--surface","#ffffff","#1c1c1e","การ์ด แผง modal"],["--surface-2","#f2f2f7","#2c2c2e","พื้นรอง หัวตาราง"],["--fill","#ebebf0","#2c2c2e","ปุ่มรอง ช่องกรอก ราง segmented"],["--line","#e0e0e5","#38383a","เส้นแบ่งในตาราง/รายการ"],["--line-strong","#c7c7cc","#48484a","เส้นแถบบน วงแหวนกราฟ"],["--ink","#1d1d1f","#f5f5f7","ข้อความหลัก"],["--ink-2","#48484d","#d1d1d6","ข้อความรอง"],["--ink-3","#6e6e73","#98989f","คำอธิบาย ป้ายกำกับ"],["--primary","#2b59d9","#6f95ff","ปุ่มหลัก ตัวเลือกที่เลือก เส้นคะแนน"],["--primary-soft","#eaf0fd","#1a2547","พื้นตัวเลือกที่เลือก"],["--avg","#e07b00","#ff9f0a","เส้นค่าเฉลี่ย (ใช้กับเส้นเท่านั้น)"],["--avg-ink","#9a5500","#ffb340","ข้อความสีส้ม"],["--ok","#1f7a3a","#30d158","ตอบแล้ว สำเร็จ"],["--ok-soft","#e4f5e8","#0f2e19","พื้นช่องตอบแล้ว"],["--danger","#d70015","#ff6961","ผิดพลาด เวลาเหลือ < 5 นาที"],["--danger-soft","#fdecee","#3a1517","พื้นกล่องผิดพลาด"],["--warn","#8a5d00","#ffd60a","ข้อควรระวัง (ข้อความ/ไอคอน)"],["--warn-soft","#fff4d6","#332b0a","พื้นกล่องระวัง แถวผิดปกติ"],["--lock","#0a0a0c","#000000","หน้าจอบล็อก ฉายรหัสสอบ"]];
+    const text = ['--ink', '--ink-2', '--ink-3', '--primary', '--avg-ink', '--ok', '--danger', '--warn'];
+    return {
+      colors: C.map(([name, l, d, use]) => ({ name, l, d, use, crL: text.includes(name) ? this.cr(l, '#ffffff') + ' บน surface' : '', crD: text.includes(name) ? this.cr(d, '#1c1c1e') + ' บน surface' : '' })),
+      typeScale: [
+        ['display', '44px · 700 · 1.25', 'คะแนนรวม', 44, 700], ['h1', '26px · 700 · 1.45', 'หัวหน้าจอ (มือถือ) · admin 24px', 26, 700], ['h2', '20px · 700 · 1.45', 'หัว modal · ลิ้นชัก', 20, 700],
+        ['question', '18px · 400 · 1.8', 'เนื้อหาโจทย์ (ขั้นต่ำ 16px)', 18, 400], ['option / input', '17px · 400 · 1.6', 'ตัวเลือก ช่องกรอก (≥16px กัน iOS ซูม)', 17, 400],
+        ['body', '15–16px · 400 · 1.6', 'ข้อความทั่วไป', 16, 400], ['small', '13–14px · 400–600 · 1.5', 'ป้าย คำอธิบาย (ห้ามต่ำกว่า 13px)', 13, 600]
+      ].map(([t, spec, use, size, w]) => ({ t, spec, use, size: size + 'px', w })),
+      spacing: [4, 8, 12, 16, 20, 24, 32, 48].map(v => ({ v: v + 'px', w: v + 'px' })),
+      radii: [['4', 'ช่องระดับ'], ['8', 'ปุ่มเล็ก'], ['10', 'ปุ่ม ช่องกรอก'], ['12', 'ปุ่มใหญ่ กล่องแจ้งเตือน'], ['14', 'การ์ด การ์ดตัวเลือก'], ['16–20', 'modal ลิ้นชัก'], ['999', 'ชิป']].map(([r, use]) => ({ r: r + 'px', rr: (r === '16–20' ? 18 : r) + 'px', use })),
+      shadows: [['--shadow', 'var(--shadow)', 'การ์ดบนพื้นหลัง (ไม่มีเส้นขอบ)'], ['--bar', 'var(--shadow)', 'แถบบน/ล่างโปร่งแสง + blur 20px'], ['--shadow-lg', 'var(--shadow-lg)', 'modal ลิ้นชัก toast'], ['--focus', 'var(--focus)', 'วงโฟกัสแป้นพิมพ์ 2px + ช่องว่าง 3px']].map(([n, v, use]) => ({ n, v, use }))
+    };
+  }
+  frameVals() {
+    const st = (label, p) => { const o = Object.assign({ label, theme: 'light' }, p); o.dark = o.theme === 'dark' || (o.overlay || '').startsWith('lock') || o.overlay === 'zoom'; o.wrapBg = (o.overlay || '').startsWith('lock') ? 'var(--lock)' : o.overlay === 'zoom' ? 'rgb(5,8,14)' : 'var(--bg)'; return o; };
+    const mobile = [
+      st('S1 · ปกติ', { screen: 'login' }), st('S1 · กำลังตรวจสอบ', { screen: 'login', loginState: 'loading' }),
+      st('S1 · รหัสการสอบไม่ถูกต้อง', { screen: 'login', loginState: 'err_code' }), st('S1 · ยังไม่ถึงเวลาสอบ', { screen: 'login', loginState: 'err_notyet' }),
+      st('S1 · ปิดรับแล้ว', { screen: 'login', loginState: 'err_closed' }), st('S1 · ไม่พบในรายชื่อ', { screen: 'login', loginState: 'err_notfound' }),
+      st('S1 · อีเมลไม่ใช่ @psru.ac.th', { screen: 'login', loginState: 'err_domain' }),
+      st('S2 · ยืนยันก่อนสอบ', { screen: 'confirm' }), st('S2 · กลับมาสอบต่อ', { screen: 'confirm', resumed: 'true', answered: '12', timeLeft: '2480' }),
+      st('S3 · ข้อเดียว ยังไม่เลือก', { screen: 'exam', current: '3', answered: '2', timeLeft: '3125' }),
+      st('S3 · เลือกแล้ว กำลังบันทึก', { screen: 'exam', current: '1', answered: '1', saveState: 'saving', timeLeft: '3402' }),
+      st('S3 · เลือกได้หลายข้อ', { screen: 'exam', current: '2', answered: '2', timeLeft: '3300' }),
+      st('S3 · มีรูป · บันทึกไม่สำเร็จ', { screen: 'exam', current: '11', answered: '10', saveState: 'error', timeLeft: '2210' }),
+      st('S3 · รูปในตัวเลือก', { screen: 'exam', current: '13', answered: '12', timeLeft: '2015' }),
+      st('S3 · ข้อสุดท้าย เหลือ < 5 นาที', { screen: 'exam', current: '40', answered: '38', timeLeft: '252' }),
+      st('S3 · ไม่รองรับเต็มจอ (iPhone)', { screen: 'exam', current: '5', answered: '4', iosNotice: 'true', timeLeft: '3010' }),
+      st('S3 · ภาพรวม', { screen: 'exam', overlay: 'overview', current: '15', answered: '14', timeLeft: '2300' }),
+      st('S3 · ยืนยันส่ง (ยังไม่ครบ)', { screen: 'exam', overlay: 'submit', current: '40', answered: '38', timeLeft: '600' }),
+      st('S3 · ยืนยันส่ง (ครบ)', { screen: 'exam', overlay: 'submit', current: '40', answered: '40', timeLeft: '600' }),
+      st('S3 · ขยายรูป', { screen: 'exam', overlay: 'zoom', current: '11', answered: '10' }),
+      st('S3 · บล็อก: ออกจากเต็มจอ', { screen: 'exam', overlay: 'lock_fs', leaves: '1' }),
+      st('S3 · บล็อก: สลับหน้าจอ', { screen: 'exam', overlay: 'lock_tab', leaves: '2' }),
+      st('S3 · บล็อก: ครบจำนวนที่อนุญาต', { screen: 'exam', overlay: 'lock_tab', leaves: '3' }),
+      st('S3 · บล็อก: กำลังส่ง', { screen: 'exam', overlay: 'lock_submitting' }),
+      st('S4 · ส่งแล้ว รอผล', { screen: 'submitted', published: 'false', answered: '38' }),
+      st('S4 · ส่งอัตโนมัติ', { screen: 'submitted', published: 'false', answered: '31', autoReason: 'leaves' }),
+      st('S4 · ประกาศผลแล้ว', { screen: 'submitted', published: 'true', answered: '38' }),
+      st('S5 · ผลการสอบ', { screen: 'result' }), st('S5 · ตัวอย่างการ์ดผลสอบ', { screen: 'result', overlay: 'card' }),
+      st('มืด · S1 ผิดพลาด', { theme: 'dark', screen: 'login', loginState: 'err_code' }), st('มืด · S3 เลือกแล้ว', { theme: 'dark', screen: 'exam', current: '2', answered: '2', timeLeft: '3300' }),
+      st('มืด · S3 ภาพรวม', { theme: 'dark', screen: 'exam', overlay: 'overview', current: '15', answered: '14' }), st('มืด · S3 เหลือ < 5 นาที', { theme: 'dark', screen: 'exam', current: '40', answered: '38', timeLeft: '252' }),
+      st('มืด · S5 ผลการสอบ', { theme: 'dark', screen: 'result' })
+    ];
+    const desktop = [
+      st('เดสก์ท็อป · S1', { screen: 'login' }),
+      st('เดสก์ท็อป · S3 ข้อเดียว', { screen: 'exam', current: '3', answered: '2', timeLeft: '3125' }),
+      st('เดสก์ท็อป · S3 หลายข้อ เลือกแล้ว', { screen: 'exam', current: '2', answered: '2', saveState: 'saving', timeLeft: '3300' }),
+      st('เดสก์ท็อป · S3 มีรูป · บันทึกไม่สำเร็จ', { screen: 'exam', current: '11', answered: '10', saveState: 'error', timeLeft: '2210' }),
+      st('เดสก์ท็อป · S3 รูปในตัวเลือก', { screen: 'exam', current: '13', answered: '12', timeLeft: '2015' }),
+      st('เดสก์ท็อป · S3 ข้อสุดท้าย < 5 นาที', { screen: 'exam', current: '40', answered: '38', timeLeft: '252' }),
+      st('เดสก์ท็อป · S3 ยืนยันส่ง', { screen: 'exam', overlay: 'submit', current: '40', answered: '38', timeLeft: '600' }),
+      st('เดสก์ท็อป · S3 บล็อก: สลับหน้าจอ', { screen: 'exam', overlay: 'lock_tab', leaves: '2', current: '11', answered: '10' }),
+      st('เดสก์ท็อป มืด · S3', { theme: 'dark', screen: 'exam', current: '2', answered: '2', timeLeft: '3300' }),
+      st('เดสก์ท็อป · S5', { screen: 'result' }), st('เดสก์ท็อป มืด · S5', { theme: 'dark', screen: 'result' })
+    ];
+    const ad = (label, p) => Object.assign({ label, theme: 'light', tab: 'rounds', overlay: 'none', empty: 'false', loading: 'false' }, p);
+    const admin = [
+      ad('A1 · รายการรอบสอบ', {}), ad('A1 · กำลังโหลด', { loading: 'true' }), ad('A1 · ว่าง', { empty: 'true' }),
+      ad('A1 · สร้าง/แก้ไขรอบ', { overlay: 'roundForm' }), ad('A1 · ฉายรหัสสอบ', { overlay: 'code' }), ad('A1 · ยืนยันสร้างรหัสใหม่', { overlay: 'regen' }),
+      ad('A1 · นำเข้ารายชื่อ 1/3', { overlay: 'import' }), ad('A1 · นำเข้ารายชื่อ 2/3', { overlay: 'import2' }), ad('A1 · นำเข้ารายชื่อ 3/3', { overlay: 'import3' }),
+      ad('A1 · ยืนยันลบรอบ', { overlay: 'delete' }),
+      ad('A2 · คลังข้อสอบ', { tab: 'bank' }), ad('A2 · เพิ่ม/แก้ไขข้อสอบ', { tab: 'bank', overlay: 'editor' }), ad('A2 · นำเข้า JSON (ตรวจไฟล์แล้ว)', { tab: 'bank', overlay: 'qimport2' }), ad('A2 · ส่งออก', { tab: 'bank', overlay: 'qexport' }),
+      ad('A3 · ตารางผลสอบ', { tab: 'results' }), ad('A3 · กำลังเผยแพร่ผล', { tab: 'results', overlay: 'publishing' }), ad('A3 · รายละเอียดรายคน', { tab: 'results', overlay: 'detail' }),
+      ad('A3 · ตรวจเลขอ้างอิง: ถูกต้อง', { tab: 'results', overlay: 'refok' }), ad('A3 · ตรวจเลขอ้างอิง: ไม่พบ', { tab: 'results', overlay: 'refbad' }),
+      ad('มืด · A1', { theme: 'dark' }), ad('มืด · A3', { theme: 'dark', tab: 'results' })
+    ];
+    return { mobile, desktop, admin };
+  }
+  specVals() {
+    const C = window.PSRU_CONFIG; if (!C) return {};
+    const R = window.PSRU.results(C), v = R.rows.map(r => r.score), a = R.rows.map(r => r.avg);
+    return {
+      spiderMain: { axes: R.rows.map(r => r.short), values: v, avg: a },
+      spiderVariants: [
+        { title: '3 กลุ่มวิชา', theme: 'light', filter: 'none', axes: ['Software', 'Cyber', 'Soft Skill'], values: [4.5, 4, 4.5], avg: [3.6, 3.4, 4] },
+        { title: '5 กลุ่มวิชา', theme: 'light', filter: 'none', axes: ['Software', 'Robot & Auto', 'Cyber', 'Soft Skill', 'Data'], values: [4.5, 3, 4, 4.5, 2.5], avg: [3.6, 3.1, 3.4, 4, 3] },
+        { title: '6 กลุ่มวิชา', theme: 'light', filter: 'none', axes: ['Software', 'Robot & Auto', 'Cyber', 'Soft Skill', 'Data', 'Network'], values: [4.5, 3, 4, 4.5, 2.5, 3.5], avg: [3.6, 3.1, 3.4, 4, 3, 3.2] },
+        { title: '2 กลุ่มวิชา (แสดงเป็นแถบ)', theme: 'light', filter: 'none', axes: ['Software', 'Soft Skill'], values: [4.5, 4.5], avg: [3.6, 4] },
+        { title: 'ธีมมืด', theme: 'dark', filter: 'none', axes: R.rows.map(r => r.short), values: v, avg: a },
+        { title: 'พิมพ์ขาวดำ', theme: 'light', filter: 'grayscale(1)', axes: R.rows.map(r => r.short), values: v, avg: a }
+      ],
+      spiderSpec: [
+        ['ViewBox', '360 × 260 · ศูนย์กลาง (180,130) · รัศมีระดับ 5 = 86'], ['แกน', 'เริ่มที่ 12 นาฬิกา วนตามเข็ม ระยะเท่ากัน 360°/n'],
+        ['วงแหวน', '5 วง = ระดับ 1–5 · เส้น 1px --line-strong · ตัวเลขกำกับบนแกนแรก 11px/700 มีพื้น surface กันเส้นทับ'],
+        ['เส้นคะแนน', 'ทึบ 2.5px --primary · พื้น --primary 18% · จุดปลายแกน r 4.5 ขอบ surface 2px'],
+        ['เส้นค่าเฉลี่ย', 'ประ 6/4 · 2px --avg · ไม่มีพื้น ไม่มีจุด'],
+        ['ป้ายแกน', 'HTML ทับบน SVG 13px/600 ไม่ตัดบรรทัด · ห่างรัศมี 10 หน่วย · จัดชิดตามทิศ (ซ้าย/กลาง/ขวา, บน/กลาง/ล่าง) · ใช้ชื่อสั้นเสมอ'],
+        ['น้อยกว่า 3 แกน', 'เปลี่ยนเป็นแถบแนวนอน: แถบทึบ = คะแนน, เส้นประตั้ง = ค่าเฉลี่ย'],
+        ['ขาวดำ', 'แยกด้วยลักษณะเส้น (ทึบ/ประ) ไม่พึ่งสี · คำอธิบายสัญลักษณ์ระบุ “เส้นทึบ/เส้นประ” เป็นข้อความ'],
+        ['การเข้าถึง', 'role="img" + aria-label สรุปค่าทุกแกน · ตารางด้านล่างเป็นข้อมูลเดียวกันแบบข้อความ']
+      ].map(([k, d]) => ({ k, d })),
+      cardSpec: [
+        ['ขนาด', '900 × 1250 px (≈ A4 แนวตั้ง) · พื้นขาว · ส่งออกเป็น PNG 2× สำหรับพิมพ์'], ['ส่วนหัว', 'แถบ #2b59d9 สูง ~200px ขอบล่าง 6px #172f78 · โลโก้ 88px · “การ์ดผลการสอบ” 40/700 · ชื่อรอบ 20/500'],
+        ['ข้อมูลผู้สอบ', 'grid 2 คอลัมน์ · ป้าย 14px #5f6b7f · ค่า 18–22px/600'], ['กราฟ', 'Spider 400px · คำอธิบายเส้น 15px'], ['คะแนนรวม', '72/700 + เปอร์เซ็นต์ 24/600'],
+        ['ตาราง', 'หัว 15/600 พื้น #eef1f6 · แถว 18px · ช่องระดับ 22×14 ขอบ 1.5px (ช่องว่างยังเห็นเมื่อพิมพ์ขาวดำ)'],
+        ['เลขอ้างอิง', 'IBM Plex Mono 36/600 · กรอบ 2px #172033 · QR 132px ชี้หน้าตรวจเลขอ้างอิง'], ['ท้ายการ์ด', 'เวลาออกเอกสาร 14px']
+      ].map(([k, d]) => ({ k, d })),
+      copy: [
+        { group: 'เข้าสู่ระบบ: ข้อความผิดพลาด', items: [
+          'รหัสการสอบไม่ถูกต้อง — ตรวจสอบตัวอักษรอีกครั้ง รหัสมี 8 ตัว รูปแบบ XXXX-XXXX',
+          'ยังไม่ถึงเวลาสอบ — รอบนี้เปิดให้เข้าสอบ 09:00 น. วันเสาร์ที่ 25 ต.ค. 2569 กรุณากลับมาอีกครั้งเมื่อถึงเวลา',
+          'รอบสอบนี้ปิดรับแล้ว — ปิดรับเมื่อ 12:00 น. … หากเข้าสอบไม่ทันด้วยเหตุจำเป็น ติดต่ออาจารย์ผู้คุมสอบ',
+          'ไม่พบรหัสนักศึกษานี้ในรายชื่อผู้สอบ — ตรวจสอบรหัสนักศึกษา 10 หลักอีกครั้ง หากถูกต้องแล้ว แจ้งอาจารย์ผู้คุมสอบเพื่อเพิ่มรายชื่อ',
+          'ใช้ได้เฉพาะอีเมล @psru.ac.th — กรุณาใช้อีเมลของมหาวิทยาลัย ไม่รองรับอีเมลส่วนตัว เช่น Gmail หรือ Hotmail'] },
+        { group: 'ข้อปฏิบัติระหว่างสอบ', items: ['เมื่อกดเริ่ม หน้าจอจะเข้าสู่โหมดเต็มหน้าจออัตโนมัติ', 'การออกจากโหมดเต็มหน้าจอ สลับแอป หรือเปิดแท็บอื่น จะถูกบันทึกพร้อมเวลา', 'ออกนอกหน้าจอได้ไม่เกิน {n} ครั้ง ถ้าเกิน ระบบจะส่งข้อสอบให้อัตโนมัติ', 'ลำดับตัวเลือกของแต่ละคนไม่เหมือนกัน', 'คำตอบบันทึกอัตโนมัติทุกครั้งที่เลือก หากหลุดการเชื่อมต่อ เข้าสู่ระบบด้วยรหัสการสอบเดิมเพื่อทำต่อ', 'เวลาสอบนับถอยหลังต่อเนื่อง ไม่หยุดระหว่างที่ออกจากระบบ'] },
+        { group: 'คำเตือนออกนอกหน้าจอ', items: ['คุณออกจากโหมดเต็มหน้าจอ — ระบบบันทึกเหตุการณ์นี้พร้อมเวลาแล้ว เวลาสอบยังเดินต่อ …', 'ตรวจพบการสลับหน้าจอ — คุณออกจากหน้าสอบไปยังแอปหรือแท็บอื่น …', 'ตรวจพบครั้งที่ {x} จากที่อนุญาต {n} ครั้ง · เหลืออีก {n−x} ครั้ง ก่อนระบบส่งข้อสอบอัตโนมัติ', 'ครบจำนวนที่อนุญาตแล้ว หากออกอีกครั้ง ระบบจะส่งข้อสอบทันที', 'อุปกรณ์นี้ไม่รองรับโหมดเต็มหน้าจอ ทำข้อสอบต่อได้ตามปกติ ระบบยังบันทึกเมื่อสลับไปแอปอื่น'] },
+        { group: 'ยืนยันส่ง / รอผล', items: ['ส่งข้อสอบใช่หรือไม่ · ยังไม่ได้ตอบ {n} ข้อ (ข้อ 4, 7, 9 และอีก …)', 'เมื่อส่งแล้วจะกลับมาแก้ไขคำตอบไม่ได้ เวลาที่เหลือจะไม่นำไปใช้ต่อ', 'ผลสอบยังไม่ประกาศ — อาจารย์จะประกาศผลหลังปิดรอบสอบ เมื่อประกาศแล้ว เข้าสู่ระบบด้วยอีเมล รหัสนักศึกษา และรหัสการสอบเดิม เพื่อดูผลและดาวน์โหลดการ์ดผลสอบ'] }
+      ],
+      dev: [
+        ['ฟอนต์', 'Noto Sans Thai 400/500/600/700 สำหรับทั้งหมด · IBM Plex Mono 500/600 เฉพาะรหัสสอบ รหัสนักศึกษา เลขอ้างอิง ตัวนับเวลา (ตัวเลขกว้างเท่ากัน ไม่กระโดด)'],
+        ['ขนาดตัวอักษรขั้นต่ำ', 'โจทย์ ≥ 18px (ขั้นต่ำตามบรีฟ 16px) · ตัวเลือกและ input 17px (ต่ำกว่า 16px iOS จะซูมหน้าจอ) · ป้ายเล็กสุด 13px'],
+        ['ความสูงบรรทัดภาษาไทย', 'เนื้อหา 1.6–1.8 · หัวข้อ ≥ 1.3 · ห้ามใช้ line-height: 1 กับข้อความไทย สระบน (ี ื ั) และวรรณยุกต์ซ้อน (ปู่ ญี่) จะถูกตัด'],
+        ['การตัดข้อความ', 'ห้าม overflow:hidden + height คงที่บนกล่องที่มีข้อความไทย · ใช้ padding แนวตั้งแทนการบังคับความสูง · ตัดคำไทยด้วย word-break: normal + Intl.Segmenter ถ้าต้องตัด'],
+        ['จุดสัมผัส', 'ปุ่มและการ์ดตัวเลือก ≥ 44px (ปุ่มหลักนักศึกษา 52–56px) · ช่องในภาพรวม 48px · ระยะห่างระหว่างเป้าหมาย ≥ 8px'],
+        ['โฟกัส', ':focus-visible ใช้ --focus (วง 2px สีหลัก + ช่องว่าง 3px) ทุกองค์ประกอบที่กดได้ · ลำดับ tab ตามลำดับภาพ · modal ต้องกักโฟกัสและปิดด้วย Esc (ยกเว้นหน้าจอบล็อก)'],
+        ['สีและความหมาย', 'ทุกสถานะมีไอคอนหรือข้อความประกอบ (✓ ตอบแล้ว, ⚠ ผิดปกติ) · ตัวนับเวลาสีแดงมี aria-label “เหลือน้อยกว่า 5 นาที”'],
+        ['ARIA', 'ตัวเลือก: radiogroup/radio หรือ group/checkbox + aria-checked · สถานะบันทึก aria-live="polite" · หน้าจอบล็อก role="alertdialog" · ตาราง th aria-sort'],
+        ['เต็มหน้าจอ', 'เรียก requestFullscreen() จากการกดปุ่มเท่านั้น · ถ้า document.fullscreenEnabled เป็น false (iPhone Safari) แสดงแถบแจ้งเตือนสีเหลือง แล้วใช้ visibilitychange/blur ตรวจจับแทน'],
+        ['ระยะปลอดภัยมือถือ', 'แถบล่างใช้ padding-bottom: calc(10px + env(safe-area-inset-bottom)) · ใช้ 100dvh ไม่ใช้ 100vh'],
+        ['ธีม', 'ตัวแปร CSS ชุดเดียว สลับด้วย data-theme บน root · การ์ดผลสอบบังคับธีมสว่างเสมอ'],
+        ['ข้อมูลตัวอย่าง', 'config.js คือข้อมูลจำลอง (รอบ กลุ่มวิชา คะแนน) · เกณฑ์ระดับ 1–5 จริงให้ยึด SPEC.md']
+      ].map(([k, d]) => ({ k, d }))
+    };
+  }
+}
+</script>
+</body>
+</html>

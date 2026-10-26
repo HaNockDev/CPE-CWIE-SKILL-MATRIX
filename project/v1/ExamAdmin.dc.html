@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+:root,[data-theme="light"]{--bg:#f4f6f9;--surface:#ffffff;--surface-2:#eef1f6;--line:#d9dfe8;--line-strong:#b9c2d0;--ink:#172033;--ink-2:#465267;--ink-3:#5f6b7f;--primary:#2b59d9;--primary-hover:#2149bb;--primary-ink:#ffffff;--primary-soft:#e9effd;--avg:#e07b00;--avg-ink:#9a5500;--ok:#1b7a45;--ok-soft:#e2f3e9;--danger:#c42b2b;--danger-soft:#fdeceb;--warn:#8a5d00;--warn-soft:#fff3d4;--warn-line:#e8c66a;--lock:#0c1220;--shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.06);--shadow-lg:0 12px 40px rgba(16,24,40,.18);--focus:0 0 0 3px #ffffff,0 0 0 5px #2b59d9;color-scheme:light}
+[data-theme="dark"]{--bg:#0e131c;--surface:#161d29;--surface-2:#1e2735;--line:#2b3546;--line-strong:#3e4a5e;--ink:#e9eef6;--ink-2:#b7c1d1;--ink-3:#97a3b6;--primary:#7097ff;--primary-hover:#8aabff;--primary-ink:#0a1226;--primary-soft:#1c2948;--avg:#f2a03d;--avg-ink:#f5b462;--ok:#4cc784;--ok-soft:#12301f;--danger:#ff7b7b;--danger-soft:#3a1a1c;--warn:#f0c252;--warn-soft:#332810;--warn-line:#6b5418;--lock:#070a11;--shadow:0 1px 2px rgba(0,0,0,.4);--shadow-lg:0 12px 40px rgba(0,0,0,.5);--focus:0 0 0 3px #0e131c,0 0 0 5px #7097ff;color-scheme:dark}
+html,body{margin:0;padding:0;background:var(--bg)}*{box-sizing:border-box}
+:focus-visible{outline:none;box-shadow:var(--focus)!important}
+button,input,select,textarea{font-family:inherit}
+a{color:var(--primary)}a:hover{color:var(--primary-hover)}
+@keyframes psru-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" data-screen-label="{{ screenLabel }}" style="position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--ink);font-family:'Noto Sans Thai',sans-serif;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased">
+  <header style="flex:none;background:var(--surface);border-bottom:1px solid var(--line)">
+    <div style="max-width:1360px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:24px;height:64px">
+      <div style="display:flex;align-items:center;gap:10px;flex:none">
+        <div style="width:36px;height:36px;border-radius:8px;border:1.5px dashed var(--line-strong);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">PSRU</div>
+        <div style="display:flex;flex-direction:column;line-height:1.3"><span style="font-size:15px;font-weight:700">ระบบสอบออนไลน์</span><span style="font-size:12px;color:var(--ink-3)">สำหรับผู้ดูแล</span></div>
+      </div>
+      <nav aria-label="เมนูหลัก" style="display:flex;gap:4px;height:100%;flex:1">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+          <button onClick="{{ t.onClick }}" aria-current="{{ t.current }}" style="height:100%;padding:0 16px;border:none;background:transparent;color:{{ t.ink }};font-size:15px;font-weight:600;cursor:pointer;border-bottom:3px solid {{ t.bar }};border-top:3px solid transparent" style-hover="color:var(--ink)">{{ t.label }}</button>
+        </sc-for>
+      </nav>
+      <div style="display:flex;align-items:center;gap:10px;flex:none;font-size:14px;color:var(--ink-2)">
+        <span style="width:32px;height:32px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">สม</span>
+        <span>อ.สมชาย วงศ์ไทย</span>
+      </div>
+    </div>
+  </header>
+  <main style="flex:1;overflow-y:auto;overflow-x:hidden">
+    <div style="max-width:1360px;margin:0 auto;padding:24px 24px 48px;display:flex;flex-direction:column;gap:20px">
+
+<sc-if value="{{ tabRounds }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px"><h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.45">รอบสอบ</h1><span style="color:var(--ink-2)">{{ roundsSub }}</span></div>
+    <button onClick="{{ newRound }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hover)">+ สร้างรอบสอบ</button>
+  </div>
+  <sc-if value="{{ isLoading }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px">
+      <sc-for list="{{ skeletons }}" as="k"><div style="height:280px;border-radius:14px;background:var(--surface);border:1px solid var(--line);padding:20px;display:flex;flex-direction:column;gap:12px"><div style="width:30%;height:22px;border-radius:6px;background:var(--surface-2)"></div><div style="width:80%;height:26px;border-radius:6px;background:var(--surface-2)"></div><div style="width:60%;height:18px;border-radius:6px;background:var(--surface-2)"></div><div style="flex:1;border-radius:8px;background:var(--surface-2)"></div></div></sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{ roundsEmpty }}">
+    <div style="border:1.5px dashed var(--line-strong);border-radius:16px;padding:56px 24px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+      <div style="font-size:18px;font-weight:700">ยังไม่มีรอบสอบ</div>
+      <div style="color:var(--ink-2);max-width:420px">สร้างรอบสอบเพื่อกำหนดช่วงเวลา จำนวนข้อจากแต่ละกลุ่มวิชา แล้วนำเข้ารายชื่อนักศึกษา</div>
+      <button onClick="{{ newRound }}" style="margin-top:6px;height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer">+ สร้างรอบสอบแรก</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ roundsReady }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px">
+      <sc-for list="{{ roundCards }}" as="r" hint-placeholder-count="3">
+        <article style="background:var(--surface);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;box-shadow:var(--shadow)">
+          <div style="padding:18px 20px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:{{ r.stBg }};color:{{ r.stInk }};font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>{{ r.stLabel }}</span>
+              <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--line-strong);color:var(--ink-2);font-size:13px;font-weight:500;white-space:nowrap">{{ r.pubLabel }}</span>
+            </div>
+            <h2 style="margin:0;font-size:18px;font-weight:700;line-height:1.5">{{ r.name }}</h2>
+            <div style="color:var(--ink-2);font-size:14px">{{ r.whenLine }}</div>
+            <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;font-size:14px;padding-top:4px">
+              <span style="color:var(--ink-3)">รายชื่อ</span><span style="font-weight:600;color:{{ r.rosterInk }}">{{ r.rosterLabel }}</span>
+              <span style="color:var(--ink-3)">ชุดข้อสอบ</span>
+              <span style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-weight:600;color:{{ r.setInk }}">{{ r.setLabel }}</span>
+                <sc-if value="{{ r.preparing }}"><span role="progressbar" aria-valuenow="{{ r.prepPct }}" aria-valuemin="0" aria-valuemax="100" style="height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden"><span style="display:block;height:100%;width:{{ r.prepW }};background:var(--primary);transition:width .3s"></span></span></sc-if>
+              </span>
+              <span style="color:var(--ink-3)">จำนวนข้อ</span>
+              <span style="display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{ r.picks }}" as="p"><span style="font-size:13px;padding:1px 8px;border-radius:6px;background:var(--surface-2);color:var(--ink-2)">{{ p.label }}</span></sc-for>
+                <span style="font-size:13px;padding:1px 8px;font-weight:700">{{ r.totalLabel }}</span>
+              </span>
+            </div>
+          </div>
+          <div style="margin-top:auto;border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-wrap:wrap;gap:4px">
+            <button onClick="{{ r.onImport }}" style="height:44px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">นำเข้ารายชื่อ</button>
+            <button onClick="{{ r.onPrepare }}" style="height:44px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">เตรียมชุดข้อสอบ</button>
+            <button onClick="{{ r.onCode }}" style="height:44px;padding:0 12px;border:none;border-radius:8px;background:var(--primary-soft);color:var(--primary);font-size:14px;font-weight:700;cursor:pointer">รหัสสอบ</button>
+            <button onClick="{{ r.onResults }}" style="height:44px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">ดูผล</button>
+            <button onClick="{{ r.onEdit }}" style="height:44px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">แก้ไข</button>
+            <button onClick="{{ r.onDelete }}" style="height:44px;padding:0 12px;margin-left:auto;border:none;border-radius:8px;background:transparent;color:var(--danger);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--danger-soft)">ลบ</button>
+          </div>
+        </article>
+      </sc-for>
+    </div>
+  </sc-if>
+</sc-if>
+<sc-if value="{{ tabBank }}">
+  <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px"><h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.45">คลังข้อสอบ</h1><span style="color:var(--ink-2)">{{ bankSub }}</span></div>
+    <button onClick="{{ openImportQ }}" style="height:44px;padding:0 16px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">นำเข้า JSON</button>
+    <button onClick="{{ openExportQ }}" style="height:44px;padding:0 16px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">ส่งออก</button>
+    <button onClick="{{ newQuestion }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-hover)">+ เพิ่มข้อสอบ</button>
+  </div>
+  <div role="tablist" aria-label="กลุ่มวิชา" style="display:flex;gap:8px;flex-wrap:wrap">
+    <sc-for list="{{ groupChips }}" as="g" hint-placeholder-count="5">
+      <button role="tab" aria-selected="{{ g.sel }}" onClick="{{ g.onClick }}" style="height:44px;padding:0 16px;border-radius:999px;border:1.5px solid {{ g.border }};background:{{ g.bg }};color:{{ g.ink }};font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px">{{ g.label }}<span style="font-family:'IBM Plex Mono',monospace;font-size:13px;padding:0 7px;border-radius:999px;background:{{ g.countBg }}">{{ g.count }}</span></button>
+    </sc-for>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)">
+      <label style="flex:1;min-width:260px;max-width:420px;position:relative;display:flex;align-items:center">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="position:absolute;left:12px;width:18px;height:18px;fill:none;stroke:var(--ink-3);stroke-width:2.2;stroke-linecap:round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+        <input aria-label="ค้นหาโจทย์หรือรหัสข้อ" placeholder="ค้นหาโจทย์หรือรหัสข้อ" value="{{ bankSearch }}" onChange="{{ onBankSearch }}" style="width:100%;height:44px;padding:0 12px 0 38px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px">
+      </label>
+      <div role="radiogroup" aria-label="ประเภท" style="display:flex;border:1.5px solid var(--line-strong);border-radius:10px;overflow:hidden">
+        <sc-for list="{{ typeSeg }}" as="t"><button role="radio" aria-checked="{{ t.sel }}" onClick="{{ t.onClick }}" style="height:41px;padding:0 14px;border:none;background:{{ t.bg }};color:{{ t.ink }};font-size:14px;font-weight:600;cursor:pointer">{{ t.label }}</button></sc-for>
+      </div>
+      <span style="margin-left:auto;color:var(--ink-3);font-size:14px">{{ bankCount }}</span>
+    </div>
+    <sc-if value="{{ bankHasRows }}">
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="background:var(--surface-2);color:var(--ink-2);text-align:left">
+          <th style="padding:10px 16px;font-weight:600;width:110px">รหัส</th><th style="padding:10px 8px;font-weight:600;width:150px">กลุ่มวิชา</th><th style="padding:10px 8px;font-weight:600;width:120px">ประเภท</th><th style="padding:10px 8px;font-weight:600">โจทย์</th><th style="padding:10px 8px;font-weight:600;width:56px;text-align:center">รูป</th><th style="padding:10px 8px;font-weight:600;width:90px">ความยาก</th><th style="padding:10px 16px;font-weight:600;width:200px;text-align:right">จัดการ</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ bankRows }}" as="q" hint-placeholder-count="8">
+            <tr style="border-top:1px solid var(--line)">
+              <td style="padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-2)">{{ q.id }}</td>
+              <td style="padding:10px 8px">{{ q.group }}</td>
+              <td style="padding:10px 8px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink-2)"><span style="width:12px;height:12px;border:2px solid currentColor;border-radius:{{ q.typeRadius }}"></span>{{ q.type }}</span></td>
+              <td style="padding:10px 8px;max-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ q.full }}">{{ q.text }}</div></td>
+              <td style="padding:10px 8px;text-align:center"><sc-if value="{{ q.hasImg }}"><svg viewBox="0 0 24 24" role="img" aria-label="มีรูป" style="width:18px;height:18px;fill:none;stroke:var(--ink-2);stroke-width:2;stroke-linejoin:round"><path d="M3 5h18v14H3z"></path><path d="M3 16l5-5 4 4 3-3 6 6"></path></svg></sc-if></td>
+              <td style="padding:10px 8px">{{ q.diff }}</td>
+              <td style="padding:6px 12px;text-align:right;white-space:nowrap">
+                <button onClick="{{ q.onView }}" style="height:36px;padding:0 10px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:13px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">ดู</button>
+                <button onClick="{{ q.onEdit }}" style="height:36px;padding:0 10px;border:none;border-radius:8px;background:transparent;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer" style-hover="background:var(--primary-soft)">แก้ไข</button>
+                <button onClick="{{ q.onCopy }}" style="height:36px;padding:0 10px;border:none;border-radius:8px;background:transparent;color:var(--ink);font-size:13px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">คัดลอก</button>
+                <button onClick="{{ q.onDelete }}" style="height:36px;padding:0 10px;border:none;border-radius:8px;background:transparent;color:var(--danger);font-size:13px;font-weight:600;cursor:pointer" style-hover="background:var(--danger-soft)">ลบ</button>
+              </td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </sc-if>
+    <sc-if value="{{ bankNoRows }}">
+      <div style="padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+        <div style="font-size:17px;font-weight:700">{{ bankEmptyTitle }}</div>
+        <div style="color:var(--ink-2)">ลองค้นด้วยคำอื่น หรือล้างตัวกรอง</div>
+        <button onClick="{{ clearBankFilter }}" style="margin-top:6px;height:44px;padding:0 16px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">ล้างตัวกรอง</button>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+<sc-if value="{{ tabResults }}">
+  <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px"><h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.45">ผลสอบ</h1><span style="color:var(--ink-2)">{{ resSub }}</span></div>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-3)">รอบสอบ
+      <select value="{{ resRoundId }}" onChange="{{ onResRound }}" style="height:44px;min-width:360px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px">
+        <sc-for list="{{ roundOptions }}" as="o"><option value="{{ o.id }}">{{ o.name }}</option></sc-for>
+      </select>
+    </label>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <sc-for list="{{ statChips }}" as="c" hint-placeholder-count="4">
+      <button onClick="{{ c.onClick }}" aria-pressed="{{ c.sel }}" style="min-width:150px;padding:10px 16px;border-radius:12px;border:1.5px solid {{ c.border }};background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;display:flex;flex-direction:column;line-height:1.35">
+        <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:{{ c.dot }}"></span>{{ c.label }}</span>
+        <span style="font-size:22px;font-weight:700">{{ c.value }}</span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)">
+      <input aria-label="ค้นหารหัสหรือชื่อ" placeholder="ค้นหารหัสหรือชื่อ" value="{{ resSearch }}" onChange="{{ onResSearch }}" style="width:260px;height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px">
+      <button onClick="{{ toggleAnom }}" aria-pressed="{{ anomOnly }}" style="height:44px;padding:0 14px;border-radius:10px;border:1.5px solid {{ anomBorder }};background:{{ anomBg }};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--warn);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3.5L22 20.5H2L12 3.5z"></path><path d="M12 10v4"></path></svg>{{ anomLabel }}</button>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <sc-if value="{{ publishing }}">
+          <div style="display:flex;align-items:center;gap:10px;min-width:240px" role="progressbar" aria-valuenow="{{ pubPct }}" aria-valuemin="0" aria-valuemax="100" aria-label="กำลังประมวลผล">
+            <span style="font-size:13px;color:var(--ink-2);white-space:nowrap">{{ pubText }}</span>
+            <span style="flex:1;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden"><span style="display:block;height:100%;width:{{ pubW }};background:var(--primary);transition:width .25s"></span></span>
+          </div>
+        </sc-if>
+        <button onClick="{{ openRefCheck }}" style="height:44px;padding:0 14px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">ตรวจเลขอ้างอิง</button>
+        <button onClick="{{ exportCsv }}" style="height:44px;padding:0 14px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer" style-hover="background:var(--surface-2)">ส่งออก CSV</button>
+        <button onClick="{{ publish }}" style="height:44px;padding:0 16px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:14px;font-weight:600;cursor:pointer;opacity:{{ pubBtnOpacity }}">{{ publishLabel }}</button>
+      </div>
+    </div>
+    <div style="max-height:560px;overflow:auto">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:14px;min-width:1180px">
+        <thead><tr>
+          <sc-for list="{{ resCols }}" as="h" hint-placeholder-count="11">
+            <th aria-sort="{{ h.aria }}" style="position:sticky;top:0;z-index:1;background:var(--surface-2);border-bottom:1px solid var(--line-strong);padding:0;text-align:{{ h.align }};font-weight:600;color:var(--ink-2)">
+              <button onClick="{{ h.onClick }}" style="width:100%;height:44px;padding:0 10px;border:none;background:transparent;color:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;justify-content:{{ h.justify }};white-space:nowrap">{{ h.label }}<span style="font-size:11px;color:var(--primary)">{{ h.arrow }}</span></button>
+            </th>
+          </sc-for>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ resRows }}" as="r" hint-placeholder-count="10">
+            <tr onClick="{{ r.onClick }}" style="cursor:pointer;background:{{ r.bg }}" style-hover="background:var(--primary-soft)">
+              <td style="padding:10px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:13px">{{ r.sid }}</td>
+              <td style="padding:10px;border-bottom:1px solid var(--line)"><div style="display:flex;flex-direction:column;line-height:1.4"><span style="font-weight:600">{{ r.name }}</span><sc-if value="{{ r.unverified }}"><span style="font-size:12px;color:var(--warn);font-weight:600">⚠ อีเมลยังไม่ยืนยัน</span></sc-if></div></td>
+              <td style="padding:10px;border-bottom:1px solid var(--line)"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:{{ r.stInk }};white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>{{ r.stLabel }}</span></td>
+              <td style="padding:10px;border-bottom:1px solid var(--line);text-align:right;font-family:'IBM Plex Mono',monospace">{{ r.answered }}</td>
+              <td style="padding:10px;border-bottom:1px solid var(--line);text-align:right"><span style="display:inline-flex;align-items:center;gap:4px;font-weight:{{ r.leaveWeight }};color:{{ r.leaveInk }}">{{ r.leaveLabel }}</span></td>
+              <sc-for list="{{ r.scores }}" as="s"><td style="padding:10px;border-bottom:1px solid var(--line);text-align:right;font-family:'IBM Plex Mono',monospace">{{ s.v }}</td></sc-for>
+              <td style="padding:10px;border-bottom:1px solid var(--line);text-align:right;font-weight:700">{{ r.pct }}</td>
+              <td style="padding:10px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-2)">{{ r.ref }}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <sc-if value="{{ resEmpty }}"><div style="padding:40px;text-align:center;color:var(--ink-2)">{{ resEmptyText }}</div></sc-if>
+    </div>
+  </div>
+</sc-if>
+    </div>
+  </main>
+<sc-if value="{{ ovRoundForm }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.55)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="rf-t" style="position:relative;width:100%;max-width:680px;max-height:100%;overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center"><h2 id="rf-t" style="margin:0;flex:1;font-size:20px;font-weight:700">{{ formTitle }}</h2><button onClick="{{ closeOverlay }}" aria-label="ปิด" style="width:44px;height:44px;border:none;background:transparent;color:var(--ink);font-size:22px;cursor:pointer;border-radius:10px">×</button></div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+      <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">ชื่อรอบสอบ</span><input value="{{ fName }}" onChange="{{ onFName }}" style="height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px"></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">เปิดสอบ</span><input type="datetime-local" value="{{ fOpen }}" onChange="{{ onFOpen }}" style="height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">ปิดสอบ</span><input type="datetime-local" value="{{ fClose }}" onChange="{{ onFClose }}" style="height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">เวลาทำข้อสอบ (นาที)</span><input type="number" min="5" value="{{ fDur }}" onChange="{{ onFDur }}" style="height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">ออกนอกหน้าจอได้ (ครั้ง)</span><input type="number" min="0" value="{{ fLeaves }}" onChange="{{ onFLeaves }}" style="height:44px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px"><span style="font-size:13px;color:var(--ink-3)">เกินจำนวนนี้ ระบบส่งข้อสอบอัตโนมัติ</span></label>
+      </div>
+      <fieldset style="margin:0;border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <legend style="padding:0 6px;font-weight:600">จำนวนข้อที่สุ่มจากแต่ละกลุ่มวิชา</legend>
+        <sc-for list="{{ fPicks }}" as="p" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:12px;align-items:center">
+            <div style="display:flex;flex-direction:column;line-height:1.4"><span style="font-weight:600">{{ p.name }}</span><span style="font-size:13px;color:{{ p.hintInk }}">{{ p.hint }}</span></div>
+            <input type="number" min="0" aria-label="{{ p.name }}" value="{{ p.value }}" onChange="{{ p.onChange }}" style="height:44px;padding:0 12px;border-radius:10px;border:1.5px solid {{ p.border }};background:var(--surface);color:var(--ink);font-size:16px;text-align:right;font-family:'IBM Plex Mono',monospace">
+          </div>
+        </sc-for>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px;font-weight:700"><span>รวม</span><span>{{ fTotal }}</span></div>
+      </fieldset>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px">
+      <button onClick="{{ closeOverlay }}" style="height:44px;padding:0 18px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">ยกเลิก</button>
+      <button onClick="{{ saveRound }}" disabled="{{ fInvalid }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer;opacity:{{ fSaveOpacity }}">บันทึกรอบสอบ</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ ovCode }}">
+<div role="dialog" aria-modal="true" aria-label="รหัสสอบ" style="position:absolute;inset:0;z-index:45;background:#0c1220;color:#ffffff;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;gap:12px">
+    <span style="font-size:18px;color:#c9d2e3">{{ codeRound }}</span>
+    <button onClick="{{ closeOverlay }}" style="height:44px;padding:0 18px;border:1px solid rgba(255,255,255,.3);border-radius:10px;background:transparent;color:#ffffff;font-size:15px;font-weight:600;cursor:pointer">ปิด</button>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px;text-align:center">
+    <span style="font-size:28px;color:#c9d2e3;font-weight:500">รหัสการสอบ</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:clamp(64px,11vw,180px);letter-spacing:.06em;line-height:1.1">{{ codeValue }}</span>
+    <span style="font-size:24px;color:#c9d2e3">กรอกรหัสนี้ในหน้าเข้าสู่ระบบ พร้อมอีเมลและรหัสนักศึกษา</span>
+  </div>
+  <div style="display:flex;justify-content:center;gap:12px;padding:24px">
+    <button onClick="{{ copyCode }}" style="height:52px;padding:0 24px;border:none;border-radius:12px;background:#ffffff;color:#0c1220;font-size:16px;font-weight:700;cursor:pointer">คัดลอกรหัส</button>
+    <button onClick="{{ askRegen }}" style="height:52px;padding:0 24px;border:1px solid rgba(255,255,255,.3);border-radius:12px;background:transparent;color:#ffffff;font-size:16px;font-weight:600;cursor:pointer">สร้างรหัสใหม่</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ ovConfirm }}">
+<div style="position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ cancelConfirm }}" style="position:absolute;inset:0;background:rgba(8,12,20,.6)"></div>
+  <div role="alertdialog" aria-modal="true" aria-labelledby="cf-t" style="position:relative;width:100%;max-width:460px;background:var(--surface);color:var(--ink);border-radius:16px;box-shadow:var(--shadow-lg);padding:22px 24px;display:flex;flex-direction:column;gap:12px">
+    <h2 id="cf-t" style="margin:0;font-size:20px;font-weight:700;line-height:1.45">{{ cfTitle }}</h2>
+    <p style="margin:0;color:var(--ink-2)">{{ cfBody }}</p>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px">
+      <button onClick="{{ cancelConfirm }}" style="height:44px;padding:0 18px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">ยกเลิก</button>
+      <button onClick="{{ doConfirm }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:{{ cfBg }};color:{{ cfInk }};font-size:15px;font-weight:600;cursor:pointer">{{ cfBtn }}</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ ovImport }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.55)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="im-t" style="position:relative;width:100%;max-width:820px;max-height:100%;overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+    <div style="padding:18px 24px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center"><h2 id="im-t" style="margin:0;flex:1;font-size:20px;font-weight:700">นำเข้ารายชื่อผู้สอบ</h2><button onClick="{{ closeOverlay }}" aria-label="ปิด" style="width:44px;height:44px;border:none;background:transparent;color:var(--ink);font-size:22px;cursor:pointer;border-radius:10px">×</button></div>
+      <ol style="margin:0;padding:0;list-style:none;display:flex;gap:8px">
+        <sc-for list="{{ imSteps }}" as="s"><li aria-current="{{ s.current }}" style="flex:1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:{{ s.ink }}"><span style="width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;background:{{ s.bg }};color:{{ s.numInk }}">{{ s.n }}</span>{{ s.label }}<span style="flex:1;height:2px;background:var(--line)"></span></li></sc-for>
+      </ol>
+    </div>
+    <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+      <sc-if value="{{ imStep1 }}">
+        <div role="tablist" style="display:flex;gap:6px">
+          <sc-for list="{{ imSrcTabs }}" as="t"><button role="tab" aria-selected="{{ t.sel }}" onClick="{{ t.onClick }}" style="height:40px;padding:0 14px;border-radius:999px;border:1.5px solid {{ t.border }};background:{{ t.bg }};color:{{ t.ink }};font-size:14px;font-weight:600;cursor:pointer">{{ t.label }}</button></sc-for>
+        </div>
+        <sc-if value="{{ imPaste }}"><textarea aria-label="วางรายชื่อ" rows="7" style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.7;resize:vertical">{{ imSample }}</textarea></sc-if>
+        <sc-if value="{{ imFile }}"><div style="border:1.5px dashed var(--line-strong);border-radius:12px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center"><span style="font-weight:600">ลากไฟล์มาวางที่นี่ หรือ</span><button style="height:44px;padding:0 16px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">เลือกไฟล์ CSV / XLSX</button><span style="font-size:13px;color:var(--ink-3)">แถวแรกเป็นหัวคอลัมน์ ขนาดไม่เกิน 5 MB</span></div></sc-if>
+        <div style="background:var(--surface-2);border-radius:10px;padding:12px 14px;font-size:14px;display:flex;flex-direction:column;gap:4px"><strong>รูปแบบที่รองรับ</strong><span style="color:var(--ink-2)">3 คอลัมน์ เรียงตามนี้: รหัสนักศึกษา (10 หลัก), ชื่อ-สกุล, อีเมล @psru.ac.th · คั่นด้วยจุลภาคหรือแท็บ</span><code style="font-family:'IBM Plex Mono',monospace;font-size:13px">6512345678, นางสาวกานต์ธิดา ใจดี, 6512345678@psru.ac.th</code></div>
+        <div role="radiogroup" aria-label="วิธีนำเข้า" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ imModes }}" as="m"><button role="radio" aria-checked="{{ m.sel }}" onClick="{{ m.onClick }}" style="text-align:left;padding:12px 14px;border-radius:12px;border:2px solid {{ m.border }};background:{{ m.bg }};color:var(--ink);cursor:pointer;display:flex;flex-direction:column;gap:2px"><span style="font-weight:700;font-size:15px">{{ m.label }}</span><span style="font-size:13px;color:var(--ink-2)">{{ m.desc }}</span></button></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ imStep2 }}">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:14px"><span style="padding:4px 12px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-weight:600">✓ อ่านได้ 126 แถว</span><span style="padding:4px 12px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-weight:600">⚠ มีปัญหา 3 แถว (จะถูกข้าม)</span></div>
+        <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse;font-size:14px">
+            <thead><tr style="background:var(--surface-2);color:var(--ink-2);text-align:left"><th style="padding:8px 12px;width:60px">แถว</th><th style="padding:8px 12px">รหัสนักศึกษา</th><th style="padding:8px 12px">ชื่อ-สกุล</th><th style="padding:8px 12px">อีเมล</th><th style="padding:8px 12px">ตรวจสอบ</th></tr></thead>
+            <tbody><sc-for list="{{ imPreview }}" as="r"><tr style="border-top:1px solid var(--line);background:{{ r.bg }}"><td style="padding:8px 12px;color:var(--ink-3)">{{ r.n }}</td><td style="padding:8px 12px;font-family:'IBM Plex Mono',monospace">{{ r.sid }}</td><td style="padding:8px 12px">{{ r.name }}</td><td style="padding:8px 12px">{{ r.email }}</td><td style="padding:8px 12px;font-weight:600;color:{{ r.ink }}">{{ r.check }}</td></tr></sc-for></tbody>
+          </table>
+        </div>
+      </sc-if>
+      <sc-if value="{{ imStep3 }}">
+        <div style="display:flex;gap:12px;align-items:center;padding:16px;border-radius:12px;background:var(--ok-soft)"><span style="width:40px;height:40px;border-radius:50%;background:var(--ok);color:var(--surface);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex:none">✓</span><div style="display:flex;flex-direction:column"><strong style="font-size:17px">นำเข้าสำเร็จ 126 คน</strong><span style="color:var(--ink-2)">{{ imModeDone }}</span></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><strong>ข้าม 3 แถว</strong>
+          <sc-for list="{{ imSkipped }}" as="k"><div style="display:flex;gap:12px;padding:8px 12px;border-radius:8px;background:var(--warn-soft);font-size:14px"><span style="font-weight:700;flex:none">{{ k.row }}</span><span>{{ k.reason }}</span></div></sc-for>
+        </div>
+      </sc-if>
+    </div>
+    <div style="padding:14px 24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px">
+      <button onClick="{{ imBack }}" style="height:44px;padding:0 18px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">{{ imBackLabel }}</button>
+      <button onClick="{{ imNext }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer">{{ imNextLabel }}</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ ovEditor }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.55)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="ed-t" style="position:relative;width:100%;max-width:1180px;height:100%;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:14px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px"><h2 id="ed-t" style="margin:0;flex:1;font-size:20px;font-weight:700">{{ edTitle }}</h2><button onClick="{{ closeOverlay }}" aria-label="ปิด" style="width:44px;height:44px;border:none;background:transparent;color:var(--ink);font-size:22px;cursor:pointer;border-radius:10px">×</button></div>
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)">
+      <div style="overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px;border-right:1px solid var(--line)">
+        <div style="display:grid;grid-template-columns:1.4fr 1.4fr 90px;gap:12px">
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">กลุ่มวิชา</span><select value="{{ edGroup }}" onChange="{{ onEdGroup }}" style="height:44px;padding:0 10px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px"><sc-for list="{{ groupOptions }}" as="g"><option value="{{ g.key }}">{{ g.name }}</option></sc-for></select></label>
+          <div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">ระดับความยาก</span><div role="radiogroup" aria-label="ระดับความยาก" style="display:flex;border:1.5px solid var(--line-strong);border-radius:10px;overflow:hidden"><sc-for list="{{ edDiffSeg }}" as="d"><button role="radio" aria-checked="{{ d.sel }}" onClick="{{ d.onClick }}" style="flex:1;height:41px;border:none;background:{{ d.bg }};color:{{ d.ink }};font-size:14px;font-weight:600;cursor:pointer">{{ d.label }}</button></sc-for></div></div>
+          <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">คะแนน</span><input type="number" min="1" value="1" style="height:44px;padding:0 10px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px;text-align:right"></label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">โจทย์</span><textarea rows="4" value="{{ edText }}" onChange="{{ onEdText }}" style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:16px;line-height:1.7;resize:vertical"></textarea></label>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px dashed var(--line-strong);border-radius:10px"><span style="flex:1;font-size:14px;color:var(--ink-2)">{{ edImageLabel }}</span><button onClick="{{ toggleEdImage }}" style="height:40px;padding:0 14px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer">{{ edImageBtn }}</button></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">ตัวเลือก</span><span style="font-size:13px;color:var(--ink-3)">{{ edOptHint }}</span></div>
+          <sc-for list="{{ edOpts }}" as="o" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:12px;border:1.5px solid {{ o.border }};background:{{ o.bg }}">
+              <span style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">{{ o.letter }}</span>
+              <input aria-label="{{ o.aria }}" value="{{ o.text }}" onChange="{{ o.onText }}" style="flex:1;min-width:0;height:40px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:15px">
+              <button onClick="{{ o.onCorrect }}" role="checkbox" aria-checked="{{ o.correctAria }}" style="height:40px;padding:0 10px;border-radius:8px;border:1.5px solid {{ o.cBorder }};background:{{ o.cBg }};color:{{ o.cInk }};font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">{{ o.cLabel }}</button>
+              <button aria-label="เพิ่มรูปตัวเลือก" title="เพิ่มรูป" style="width:36px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--ink-2);cursor:pointer;font-size:15px">▣</button>
+              <button onClick="{{ o.onUp }}" aria-label="เลื่อนขึ้น" style="width:36px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--ink-2);cursor:pointer;font-size:15px">↑</button>
+              <button onClick="{{ o.onDown }}" aria-label="เลื่อนลง" style="width:36px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--ink-2);cursor:pointer;font-size:15px">↓</button>
+              <button onClick="{{ o.onDel }}" aria-label="ลบตัวเลือก" style="width:36px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--danger);cursor:pointer;font-size:18px">×</button>
+            </div>
+          </sc-for>
+          <button onClick="{{ addOpt }}" disabled="{{ addOptDisabled }}" style="height:44px;border:1.5px dashed var(--line-strong);border-radius:10px;background:transparent;color:var(--primary);font-size:15px;font-weight:600;cursor:pointer;opacity:{{ addOptOpacity }}">+ เพิ่มตัวเลือก</button>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">เฉลยอธิบาย <span style="font-weight:400;color:var(--ink-3)">(ไม่บังคับ)</span></span><textarea rows="3" placeholder="อธิบายเหตุผลของคำตอบที่ถูก แสดงเฉพาะผู้ดูแล" style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:15px;line-height:1.7;resize:vertical"></textarea></label>
+      </div>
+      <div style="overflow-y:auto;background:var(--bg);padding:20px 24px;display:flex;flex-direction:column;gap:12px">
+        <span style="font-size:13px;font-weight:700;color:var(--ink-3);letter-spacing:.02em">ตัวอย่างที่นักศึกษาเห็น</span>
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 16px;display:flex;flex-direction:column;gap:14px;max-width:400px">
+          <span style="align-self:flex-start;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--primary);background:var(--primary-soft);border-radius:999px;padding:2px 10px 2px 7px"><span style="width:12px;height:12px;border:2px solid currentColor;border-radius:{{ pvRadius }}"></span>{{ pvType }}</span>
+          <div style="font-size:17px;line-height:1.75;white-space:pre-wrap">{{ edText }}</div>
+          <sc-if value="{{ edHasImage }}"><div style="aspect-ratio:16 / 9;border-radius:10px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,var(--surface-2) 0 10px,var(--surface) 10px 20px);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--ink-3)">รูปประกอบโจทย์</div></sc-if>
+          <sc-for list="{{ edOpts }}" as="o"><div style="display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 12px;border-radius:12px;border:2px solid var(--line)"><span style="width:32px;height:32px;flex:none;border-radius:{{ pvRadius }};border:2px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--ink-2)">{{ o.letter }}</span><span style="font-size:16px">{{ o.text }}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 24px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px">
+      <span style="flex:1;font-size:14px;color:{{ edMsgInk }}">{{ edMsg }}</span>
+      <button onClick="{{ closeOverlay }}" style="height:44px;padding:0 18px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">ยกเลิก</button>
+      <button onClick="{{ saveQuestion }}" disabled="{{ edInvalid }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer;opacity:{{ edSaveOpacity }}">บันทึกข้อสอบ</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ ovQImport }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.55)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="qi-t" style="position:relative;width:100%;max-width:560px;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+    <h2 id="qi-t" style="margin:0;font-size:20px;font-weight:700">นำเข้าข้อสอบ (JSON)</h2>
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed var(--line-strong);border-radius:10px"><span style="flex:1;font-family:'IBM Plex Mono',monospace;font-size:14px;color:{{ qiFileInk }}">{{ qiFile }}</span><button onClick="{{ qiPick }}" style="height:40px;padding:0 14px;border:1.5px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer">เลือกไฟล์</button></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font-weight:600">กรณีมีข้อสอบรหัสเดียวกันอยู่ในระบบแล้ว</span>
+      <div role="radiogroup" style="display:flex;gap:8px"><sc-for list="{{ qiDupModes }}" as="m"><button role="radio" aria-checked="{{ m.sel }}" onClick="{{ m.onClick }}" style="flex:1;height:44px;border-radius:10px;border:2px solid {{ m.border }};background:{{ m.bg }};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer">{{ m.label }}</button></sc-for></div>
+    </div>
+    <sc-if value="{{ qiPicked }}">
+      <div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px">
+        <strong style="font-size:15px">ตรวจไฟล์แล้ว · พบ 46 ข้อ</strong>
+        <span style="color:var(--ok);font-weight:600">✓ เพิ่มใหม่ 42 ข้อ</span>
+        <span style="color:var(--ink-2)">{{ qiDupLine }}</span>
+        <span style="color:var(--warn);font-weight:600">⚠ ข้าม 1 ข้อ: Q-CY-031 ไม่มีตัวเลือกที่ถูก</span>
+      </div>
+    </sc-if>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button onClick="{{ closeOverlay }}" style="height:44px;padding:0 18px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">ยกเลิก</button>
+      <button onClick="{{ qiDo }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer;opacity:{{ qiOpacity }}">นำเข้า</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ ovQExport }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.55)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="qe-t" style="position:relative;width:100%;max-width:560px;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+    <h2 id="qe-t" style="margin:0;font-size:20px;font-weight:700">ส่งออกข้อสอบ</h2>
+    <span style="color:var(--ink-2)">{{ qeCount }}</span>
+    <div role="radiogroup" style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ qeFormats }}" as="f"><button role="radio" aria-checked="{{ f.sel }}" onClick="{{ f.onClick }}" style="text-align:left;padding:10px 14px;border-radius:10px;border:2px solid {{ f.border }};background:{{ f.bg }};color:var(--ink);cursor:pointer;display:flex;flex-direction:column"><span style="font-weight:700">{{ f.label }}</span><span style="font-size:13px;color:var(--ink-2)">{{ f.desc }}</span></button></sc-for></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button onClick="{{ closeOverlay }}" style="height:44px;padding:0 18px;border:1.5px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-size:15px;font-weight:600;cursor:pointer">ยกเลิก</button>
+      <button onClick="{{ qeDo }}" style="height:44px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer">ดาวน์โหลด</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ ovDetail }}">
+<div style="position:absolute;inset:0;z-index:40">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.45)"></div>
+  <aside role="dialog" aria-modal="true" aria-labelledby="dt-t" style="position:absolute;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--surface);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1;display:flex;flex-direction:column"><h2 id="dt-t" style="margin:0;font-size:20px;font-weight:700;line-height:1.45">{{ dtName }}</h2><span style="color:var(--ink-2);font-size:14px">{{ dtSub }}</span></div>
+      <button onClick="{{ closeOverlay }}" aria-label="ปิด" style="width:44px;height:44px;border:none;background:transparent;color:var(--ink);font-size:22px;cursor:pointer;border-radius:10px">×</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;font-size:14px">
+        <sc-for list="{{ dtInfo }}" as="i"><span style="color:var(--ink-3)">{{ i.k }}</span><span style="font-weight:500;word-break:break-all">{{ i.v }}</span></sc-for>
+      </div>
+      <sc-if value="{{ dtHasScore }}">
+        <div style="border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><strong>ผลรายกลุ่มวิชา</strong><span style="font-weight:700;font-size:18px">{{ dtTotal }}</span></div>
+          <dc-import name="SpiderChart" axes="{{ dtAxes }}" values="{{ dtValues }}" avg="{{ dtAvg }}" style="width:100%" hint-size="100%,240px"></dc-import>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)"><span style="display:flex;align-items:center;gap:6px"><span style="width:24px;border-top:3px solid var(--primary)"></span>ผู้สอบคนนี้</span><span style="display:flex;align-items:center;gap:6px"><span style="width:24px;border-top:3px dashed var(--avg)"></span>ค่าเฉลี่ยทั้งรอบ</span></div>
+        </div>
+      </sc-if>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <strong>{{ dtLogTitle }}</strong>
+        <sc-for list="{{ dtLog }}" as="l"><div style="display:flex;gap:12px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--surface-2);font-size:14px"><span style="font-family:'IBM Plex Mono',monospace;flex:none">{{ l.t }}</span><span style="flex:1">{{ l.kind }}</span><span style="color:var(--ink-3);font-size:13px">{{ l.dur }}</span></div></sc-for>
+        <sc-if value="{{ dtNoLog }}"><span style="color:var(--ink-2);font-size:14px">ไม่พบการออกนอกหน้าจอ</span></sc-if>
+      </div>
+    </div>
+  </aside>
+</div>
+</sc-if>
+
+<sc-if value="{{ ovRef }}">
+<div style="position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;background:rgba(8,12,20,.55)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="rc-t" style="position:relative;width:100%;max-width:560px;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+    <h2 id="rc-t" style="margin:0;font-size:20px;font-weight:700">ตรวจเลขอ้างอิง</h2>
+    <div style="display:flex;gap:8px"><input aria-label="เลขอ้างอิง" placeholder="PSRU-XXXX-XXXX-XXXX" value="{{ refInput }}" onChange="{{ onRefInput }}" style="flex:1;min-width:0;height:48px;padding:0 12px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:17px;font-family:'IBM Plex Mono',monospace;letter-spacing:1px"><button onClick="{{ checkRef }}" style="height:48px;padding:0 18px;border:none;border-radius:10px;background:var(--primary);color:var(--primary-ink);font-size:15px;font-weight:600;cursor:pointer">ตรวจสอบ</button></div>
+    <sc-if value="{{ refOk }}">
+      <div role="status" style="border:2px solid var(--ok);border-radius:12px;overflow:hidden">
+        <div style="background:var(--ok-soft);padding:10px 14px;font-weight:700;color:var(--ok);font-size:17px">✓ ถูกต้อง · พบในฐานข้อมูล</div>
+        <div style="padding:12px 14px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 16px;font-size:14px"><sc-for list="{{ refInfo }}" as="i"><span style="color:var(--ink-3)">{{ i.k }}</span><span style="font-weight:600">{{ i.v }}</span></sc-for></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ refBad }}">
+      <div role="status" style="border:2px solid var(--danger);border-radius:12px;padding:12px 14px;background:var(--danger-soft);display:flex;flex-direction:column;gap:2px"><strong style="color:var(--danger);font-size:17px">✕ ไม่พบเลขอ้างอิงนี้</strong><span style="font-size:14px">ตรวจตัวอักษรอีกครั้ง (ไม่แยกตัวพิมพ์เล็ก-ใหญ่) หากยังไม่พบ การ์ดผลสอบนี้อาจไม่ได้ออกจากระบบ</span></div>
+    </sc-if>
+    <span style="font-size:13px;color:var(--ink-3)">{{ refHint }}</span>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}">
+  <div role="status" style="position:absolute;right:24px;bottom:24px;z-index:60;display:flex;align-items:center;gap:10px;max-width:440px;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:15px;font-weight:500;box-shadow:var(--shadow-lg)"><span style="color:#4cc784;font-weight:700">✓</span>{{ toastText }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const bool = (v, d) => v == null ? d : (v === true || v === 'true');
+const DIFF = ['ง่าย', 'ปานกลาง', 'ยาก'];
+const LETTERS = 'ABCDEFGHIJ';
+class Component extends DCLogic {
+  state = { toast: null, confirm: null, prep: {}, pub: null, bankGroup: 'all', bankType: 'all', bankSearch: '', resSearch: '', anomOnly: false, statFilter: 'all', sortKey: 'sid', sortDir: 1, imStep: 1, imSrc: 'paste', imMode: 'add', qiPicked: false, qiDup: 'skip', qeFmt: 0, refInput: '', refResult: null };
+  componentDidMount() {
+    const go = () => { this.init(); this.applyProps(); };
+    if (window.PSRU_CONFIG) go(); else this.cfgT = setInterval(() => { if (window.PSRU_CONFIG) { clearInterval(this.cfgT); go(); } }, 50);
+  }
+  componentWillUnmount() { clearInterval(this.cfgT); clearInterval(this.pubT); Object.values(this.prepT || {}).forEach(clearInterval); }
+  componentDidUpdate(p) { if (['tab', 'overlay', 'empty', 'loading'].some(k => p[k] !== this.props[k])) this.applyProps(); }
+  init() {
+    const C = window.PSRU_CONFIG, P = window.PSRU, rnd = P.rng(7);
+    const pick = a => a[Math.floor(rnd() * a.length)];
+    const rounds = C.rounds.map(r => Object.assign({}, r));
+    const bank = [];
+    C.groups.forEach(g => { const t = C.questionTemplates[g.key]; for (let i = 0; i < 6; i++) { const q = t[i % t.length]; bank.push({ id: 'Q-' + g.key.slice(0, 2).toUpperCase() + '-' + String(i + 1).padStart(3, '0'), group: g.key, type: q.type, text: q.text, image: !!q.image, diff: i % 3, options: q.options.map((o, k) => ({ text: o || ('รูปตัวเลือก ' + LETTERS[k]), correct: k === 1 || (q.type === 'multi' && k === 0) })) }); } });
+    const mkRows = (rid, n, allDone) => {
+      const R = P.results(C), rows = [];
+      for (let i = 0; i < n; i++) {
+        const st = allDone ? 'submitted' : i < n - 6 ? 'submitted' : i < n - 2 ? 'in_progress' : 'not_started';
+        const leaves = i === 0 ? 1 : (x => x < .65 ? 0 : x < .82 ? 1 : x < .93 ? 2 : 4)(rnd());
+        const scores = st === 'submitted' ? (i === 0 ? R.rows.map(r => r.score) : C.groups.map(() => Math.round((1.5 + rnd() * 3.5) * 2) / 2)) : null;
+        const ans = st === 'submitted' ? (i === 0 ? 38 : 34 + Math.floor(rnd() * 7)) : st === 'in_progress' ? 8 + Math.floor(rnd() * 24) : 0;
+        const code = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(rnd() * 32)]).join('');
+        const log = Array.from({ length: leaves }, (_, k) => ({ t: '09:' + String(12 + k * 9 + Math.floor(rnd() * 6)).padStart(2, '0') + ':' + String(Math.floor(rnd() * 60)).padStart(2, '0'), kind: k % 2 ? 'ออกจากโหมดเต็มหน้าจอ' : 'สลับแอป/แท็บ', dur: (3 + Math.floor(rnd() * 40)) + ' วินาที' }));
+        rows.push({
+          sid: i === 0 ? C.student.id : '65' + String(12345679 + i * 137 + Math.floor(rnd() * 90)).slice(0, 8),
+          name: i === 0 ? C.student.name : (rnd() < .5 ? 'นาย' : 'นางสาว') + pick(C.firstNames) + ' ' + pick(C.lastNames),
+          status: st, answered: ans, leaves, log, scores, unverified: i === 7 || i === 15,
+          pct: scores ? Math.round(scores.reduce((a, b) => a + b, 0) / (scores.length * 5) * 1000) / 10 : null,
+          ref: st === 'submitted' ? (i === 0 ? C.result.ref : 'PSRU-' + rid.replace('-', '').slice(0, 4).replace('R1256', '69R1') + '-' + code() + '-' + code()) : '—',
+          started: st === 'not_started' ? '—' : '09:0' + Math.floor(rnd() * 9) + ' น.', submitted: st === 'submitted' ? '10:' + String(10 + Math.floor(rnd() * 45)) + ' น.' : '—'
+        });
+      }
+      return rows;
+    };
+    const results = { 'R1-2569': mkRows('R1-2569', 24, false), 'R2-2569': [], 'R0-2568': mkRows('R0-2568', 12, true) };
+    this.setState({ rounds, bank, results, resRound: 'R1-2569', ready: true });
+  }
+  applyProps() {
+    const p = this.props, ov = p.overlay || 'none';
+    const s = { tab: p.tab || 'rounds', overlay: ov, confirm: null, imStep: 1, refResult: null, qiPicked: false };
+    if (ov === 'roundForm') this.formFor(null, s);
+    if (ov === 'import2') { s.overlay = 'import'; s.imStep = 2; }
+    if (ov === 'import3') { s.overlay = 'import'; s.imStep = 3; }
+    if (ov === 'editor') s.ed = this.edFor(this.state.bank ? this.state.bank[1] : null);
+    if (ov === 'detail') s.detail = 0;
+    if (ov === 'code') s.codeRound = 'R1-2569';
+    if (ov === 'refok') { s.overlay = 'refcheck'; s.refInput = window.PSRU_CONFIG.result.ref; s.refResult = 'ok'; }
+    if (ov === 'refbad') { s.overlay = 'refcheck'; s.refInput = 'PSRU-69R1-0000-ABCD'; s.refResult = 'bad'; }
+    if (ov === 'qimport2') { s.overlay = 'qimport'; s.qiPicked = true; }
+    if (ov === 'delete' || ov === 'regen') { s.overlay = ov === 'regen' ? 'code' : 'none'; s.codeRound = 'R1-2569'; s.confirm = ov === 'regen' ? this.regenConfirm('R1-2569') : this.deleteConfirm('R1-2569'); }
+    if (ov === 'publishing') { s.overlay = 'none'; s.pub = 62; }
+    this.setState(s);
+  }
+  toast(t) { clearTimeout(this.toastT); this.setState({ toast: t }); this.toastT = setTimeout(() => this.setState({ toast: null }), 2800); }
+  round(id) { return (this.state.rounds || window.PSRU_CONFIG.rounds).find(r => r.id === id); }
+  formFor(r, s) { const C = window.PSRU_CONFIG; s.form = r ? { id: r.id, name: r.name, open: '2026-10-25T09:00', close: '2026-10-25T12:00', dur: r.duration, leaves: r.maxLeaves, picks: r.picks.slice() } : { id: null, name: '', open: '2026-11-15T09:00', close: '2026-11-15T11:00', dur: 60, leaves: 3, picks: C.groups.map(() => 10) }; return s; }
+  edFor(q) { return q ? { id: q.id, group: q.group, diff: q.diff, text: q.text, image: q.image, opts: q.options.map(o => Object.assign({}, o)) } : { id: null, group: 'sw', diff: 1, text: '', image: false, opts: [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }] }; }
+  regenConfirm(id) { const r = this.round(id); return { title: 'สร้างรหัสสอบใหม่?', body: 'รหัสเดิม ' + r.code + ' จะใช้เข้าสู่ระบบไม่ได้ทันที นักศึกษาที่ยังไม่เข้าสู่ระบบต้องใช้รหัสใหม่', btn: 'สร้างรหัสใหม่', danger: false, action: () => { const c = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join(''); this.setState(s => ({ rounds: s.rounds.map(x => x.id === id ? Object.assign({}, x, { code: c() + '-' + c() }) : x) })); this.toast('สร้างรหัสสอบใหม่แล้ว รหัสเดิมใช้ไม่ได้'); } }; }
+  deleteConfirm(id) { const r = this.round(id); return { title: 'ลบรอบสอบนี้?', body: '“' + r.name + '” พร้อมรายชื่อ ' + r.roster + ' คน และผลสอบทั้งหมดของรอบนี้จะถูกลบ กู้คืนไม่ได้', btn: 'ลบรอบสอบ', danger: true, action: () => { this.setState(s => ({ rounds: s.rounds.filter(x => x.id !== id) })); this.toast('ลบรอบสอบแล้ว'); } }; }
+  prepare(id) {
+    this.prepT = this.prepT || {}; if (this.prepT[id]) return;
+    this.setState(s => ({ prep: Object.assign({}, s.prep, { [id]: 0 }) }));
+    this.prepT[id] = setInterval(() => {
+      const v = (this.state.prep[id] || 0) + 9;
+      if (v >= 100) { clearInterval(this.prepT[id]); delete this.prepT[id]; this.setState(s => { const prep = Object.assign({}, s.prep); delete prep[id]; return { prep, rounds: s.rounds.map(x => x.id === id ? Object.assign({}, x, { set: 'ready' }) : x) }; }); this.toast('เตรียมชุดข้อสอบเฉพาะบุคคลเสร็จแล้ว'); }
+      else this.setState(s => ({ prep: Object.assign({}, s.prep, { [id]: v }) }));
+    }, 180);
+  }
+  publish() {
+    if (this.state.pub != null) return;
+    this.setState({ pub: 0 });
+    this.pubT = setInterval(() => {
+      const v = this.state.pub + 6;
+      if (v >= 100) { clearInterval(this.pubT); const id = this.state.resRound; this.setState(s => ({ pub: null, rounds: s.rounds.map(x => x.id === id ? Object.assign({}, x, { published: true }) : x) })); this.toast('เผยแพร่ผลแล้ว ผู้สอบดูผลได้ทันที'); }
+      else this.setState({ pub: v });
+    }, 140);
+  }
+  renderVals() { return this.state.ready ? this.rv() : { theme: this.props.theme || 'light', tabRounds: true, isLoading: true, skeletons: [1, 2, 3] }; }
+  rv() {
+    const s = this.state, set = o => this.setState(o);
+    const base = {
+      theme: this.props.theme || 'light',
+      screenLabel: { rounds: 'A1 รอบสอบ', bank: 'A2 คลังข้อสอบ', results: 'A3 ผลสอบ' }[s.tab],
+      tabs: [['rounds', 'รอบสอบ'], ['bank', 'คลังข้อสอบ'], ['results', 'ผลสอบ']].map(([k, l]) => ({ label: l, current: s.tab === k ? 'page' : 'false', ink: s.tab === k ? 'var(--primary)' : 'var(--ink-2)', bar: s.tab === k ? 'var(--primary)' : 'transparent', onClick: () => set({ tab: k, overlay: 'none' }) })),
+      tabRounds: s.tab === 'rounds', tabBank: s.tab === 'bank', tabResults: s.tab === 'results',
+      closeOverlay: () => set({ overlay: 'none' }),
+      hasToast: !!s.toast, toastText: s.toast || ''
+    };
+    return Object.assign(base, this.rvRounds(set), this.rvBank(set), this.rvResults(set), this.rvOverlays(set));
+  }
+  rvRounds(set) {
+    const s = this.state, C = window.PSRU_CONFIG, empty = bool(this.props.empty, false), loading = bool(this.props.loading, false);
+    const rounds = empty ? [] : s.rounds;
+    const ST = { open: ['เปิดสอบอยู่', 'var(--ok-soft)', 'var(--ok)'], upcoming: ['ยังไม่ถึงเวลา', 'var(--primary-soft)', 'var(--primary)'], closed: ['ปิดแล้ว', 'var(--surface-2)', 'var(--ink-2)'] };
+    return {
+      roundsSub: rounds.length + ' รอบ · เรียงตามวันสอบ', isLoading: loading, skeletons: [1, 2, 3],
+      roundsEmpty: !loading && rounds.length === 0, roundsReady: !loading && rounds.length > 0,
+      newRound: () => set(this.formFor(null, { overlay: 'roundForm' })),
+      roundCards: rounds.map(r => {
+        const st = ST[r.status], prep = s.prep[r.id], total = r.picks.reduce((a, b) => a + b, 0);
+        return {
+          name: r.name, whenLine: r.when + ' · ทำข้อสอบ ' + r.duration + ' นาที',
+          stLabel: st[0], stBg: st[1], stInk: st[2], pubLabel: r.published ? '✓ เผยแพร่ผลแล้ว' : 'ยังไม่เผยแพร่ผล',
+          rosterLabel: r.roster ? r.roster + ' คน' : '⚠ ยังไม่มีรายชื่อ', rosterInk: r.roster ? 'var(--ink)' : 'var(--warn)',
+          preparing: prep != null, prepPct: prep || 0, prepW: (prep || 0) + '%',
+          setLabel: prep != null ? 'กำลังเตรียมชุดข้อสอบ ' + prep + '%' : r.set === 'ready' ? '✓ พร้อม (สุ่มรายบุคคลแล้ว)' : '⚠ ยังไม่เตรียม',
+          setInk: prep != null ? 'var(--primary)' : r.set === 'ready' ? 'var(--ok)' : 'var(--warn)',
+          picks: C.groups.map((g, i) => ({ label: g.short + ' ' + r.picks[i] })), totalLabel: '= ' + total + ' ข้อ',
+          onImport: () => set({ overlay: 'import', imStep: 1, imRound: r.id }),
+          onPrepare: () => this.prepare(r.id),
+          onCode: () => set({ overlay: 'code', codeRound: r.id }),
+          onResults: () => set({ tab: 'results', resRound: r.id }),
+          onEdit: () => set(this.formFor(r, { overlay: 'roundForm' })),
+          onDelete: () => set({ confirm: this.deleteConfirm(r.id) })
+        };
+      })
+    };
+  }
+  rvBank(set) {
+    const s = this.state, C = window.PSRU_CONFIG, gName = k => (C.groups.find(g => g.key === k) || {}).name;
+    const q = s.bankSearch.trim().toLowerCase();
+    const rows = s.bank.filter(b => (s.bankGroup === 'all' || b.group === s.bankGroup) && (s.bankType === 'all' || b.type === s.bankType) && (!q || b.text.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)));
+    const sel = (on) => ({ border: on ? 'var(--primary)' : 'var(--line-strong)', bg: on ? 'var(--primary)' : 'var(--surface)', ink: on ? 'var(--primary-ink)' : 'var(--ink)', countBg: on ? 'rgba(255,255,255,.22)' : 'var(--surface-2)', sel: on ? 'true' : 'false' });
+    const bankTotal = C.groups.reduce((a, g) => a + g.bank, 0);
+    return {
+      bankSub: 'ทั้งหมด ' + bankTotal + ' ข้อ · แสดงตัวอย่าง ' + s.bank.length + ' ข้อในต้นแบบ',
+      groupChips: [{ key: 'all', label: 'ทั้งหมด', count: bankTotal }].concat(C.groups.map(g => ({ key: g.key, label: g.name, count: g.bank }))).map(g => Object.assign({ label: g.label, count: g.count, onClick: () => set({ bankGroup: g.key }) }, sel(s.bankGroup === g.key))),
+      typeSeg: [['all', 'ทุกประเภท'], ['single', 'ข้อเดียว'], ['multi', 'หลายข้อ']].map(([k, l]) => ({ label: l, sel: s.bankType === k ? 'true' : 'false', bg: s.bankType === k ? 'var(--primary-soft)' : 'var(--surface)', ink: s.bankType === k ? 'var(--primary)' : 'var(--ink-2)', onClick: () => set({ bankType: k }) })),
+      bankSearch: s.bankSearch, onBankSearch: e => set({ bankSearch: e.target.value }),
+      bankCount: 'พบ ' + rows.length + ' ข้อ', bankHasRows: rows.length > 0, bankNoRows: rows.length === 0,
+      bankEmptyTitle: q ? 'ไม่พบข้อสอบที่ตรงกับ “' + s.bankSearch + '”' : 'ไม่มีข้อสอบในตัวกรองนี้',
+      clearBankFilter: () => set({ bankSearch: '', bankGroup: 'all', bankType: 'all' }),
+      bankRows: rows.map(b => ({
+        id: b.id, group: gName(b.group), type: b.type === 'multi' ? 'หลายข้อ' : 'ข้อเดียว', typeRadius: b.type === 'multi' ? '3px' : '50%',
+        text: b.text.replace(/\n+/g, ' '), full: b.text, hasImg: b.image, diff: DIFF[b.diff],
+        onView: () => set({ overlay: 'editor', ed: this.edFor(b) }), onEdit: () => set({ overlay: 'editor', ed: this.edFor(b) }),
+        onCopy: () => { this.setState(st => ({ bank: [...st.bank, Object.assign({}, b, { id: b.id + '-copy' })] })); this.toast('คัดลอก ' + b.id + ' แล้ว'); },
+        onDelete: () => set({ confirm: { title: 'ลบข้อสอบ ' + b.id + '?', body: 'ข้อสอบนี้จะถูกนำออกจากคลัง รอบสอบที่เตรียมชุดข้อสอบไว้แล้วจะไม่ได้รับผลกระทบ', btn: 'ลบข้อสอบ', danger: true, action: () => { this.setState(st => ({ bank: st.bank.filter(x => x.id !== b.id) })); this.toast('ลบ ' + b.id + ' แล้ว'); } } })
+      })),
+      newQuestion: () => set({ overlay: 'editor', ed: this.edFor(null) }),
+      openImportQ: () => set({ overlay: 'qimport', qiPicked: false }), openExportQ: () => set({ overlay: 'qexport' }),
+      qeCount: 'ส่งออกตามตัวกรองที่เลือกอยู่ (' + rows.length + ' ข้อ)'
+    };
+  }
+  rvResults(set) {
+    const s = this.state, C = window.PSRU_CONFIG, r = this.round(s.resRound) || s.rounds[0];
+    const all = (r && s.results[r.id]) || [], max = r ? r.maxLeaves : 3;
+    const cnt = st => all.filter(x => x.status === st).length;
+    const anomalous = x => x.leaves >= max || x.unverified;
+    const q = s.resSearch.trim().toLowerCase();
+    let rows = all.filter(x => (s.statFilter === 'all' || x.status === s.statFilter) && (!s.anomOnly || anomalous(x)) && (!q || x.sid.includes(q) || x.name.toLowerCase().includes(q)));
+    const val = (x, k) => k.startsWith('g') ? (x.scores ? x.scores[+k.slice(1)] : -1) : k === 'pct' ? (x.pct ?? -1) : x[k];
+    rows = rows.slice().sort((a, b) => { const A = val(a, s.sortKey), B = val(b, s.sortKey); return (A > B ? 1 : A < B ? -1 : 0) * s.sortDir; });
+    const STL = { submitted: ['ส่งแล้ว', 'var(--ok)'], in_progress: ['กำลังสอบ', 'var(--primary)'], not_started: ['ยังไม่เริ่ม', 'var(--ink-3)'] };
+    const cols = [['sid', 'รหัส'], ['name', 'ชื่อ-สกุล'], ['status', 'สถานะ'], ['answered', 'ตอบ', 1], ['leaves', 'ออกนอกจอ', 1]].concat(C.groups.map((g, i) => ['g' + i, g.short, 1])).concat([['pct', 'รวม %', 1], ['ref', 'เลขอ้างอิง']]);
+    const chip = (k, label, value, dot) => ({ label, value, dot, sel: s.statFilter === k ? 'true' : 'false', border: s.statFilter === k ? 'var(--primary)' : 'var(--line)', onClick: () => set({ statFilter: s.statFilter === k ? 'all' : k }) });
+    return {
+      resSub: r ? all.length + ' คน (ตัวอย่าง) · ออกนอกหน้าจอได้ ' + max + ' ครั้ง' : '',
+      resRoundId: r ? r.id : '', roundOptions: s.rounds.map(x => ({ id: x.id, name: x.name })), onResRound: e => set({ resRound: e.target.value, statFilter: 'all' }),
+      statChips: [chip('submitted', 'ส่งแล้ว', cnt('submitted'), 'var(--ok)'), chip('in_progress', 'กำลังสอบ', cnt('in_progress'), 'var(--primary)'), chip('not_started', 'ยังไม่เริ่ม', cnt('not_started'), 'var(--ink-3)'), { label: 'เผยแพร่ผล', value: r && r.published ? 'แล้ว' : 'ยังไม่', dot: r && r.published ? 'var(--ok)' : 'var(--warn)', sel: 'false', border: 'var(--line)', onClick: () => {} }],
+      resSearch: s.resSearch, onResSearch: e => set({ resSearch: e.target.value }),
+      anomOnly: s.anomOnly ? 'true' : 'false', toggleAnom: () => set({ anomOnly: !s.anomOnly }), anomLabel: 'เฉพาะแถวผิดปกติ (' + all.filter(anomalous).length + ')',
+      anomBorder: s.anomOnly ? 'var(--warn)' : 'var(--line-strong)', anomBg: s.anomOnly ? 'var(--warn-soft)' : 'var(--surface)',
+      publishing: s.pub != null, pubPct: s.pub || 0, pubW: (s.pub || 0) + '%', pubText: 'กำลังคิดคะแนนและเผยแพร่ ' + (s.pub || 0) + '%',
+      publish: () => this.publish(), pubBtnOpacity: s.pub != null ? 0.6 : 1, publishLabel: r && r.published ? 'ประมวลผลและเผยแพร่ใหม่' : 'ประมวลผลและเผยแพร่ผล',
+      exportCsv: () => this.toast('ส่งออก ' + rows.length + ' แถวเป็น CSV แล้ว'),
+      openRefCheck: () => set({ overlay: 'refcheck', refResult: null }),
+      resCols: cols.map(([k, l, num]) => ({ label: l, align: num ? 'right' : 'left', justify: num ? 'flex-end' : 'flex-start', arrow: s.sortKey === k ? (s.sortDir > 0 ? '▲' : '▼') : '', aria: s.sortKey === k ? (s.sortDir > 0 ? 'ascending' : 'descending') : 'none', onClick: () => set({ sortKey: k, sortDir: s.sortKey === k ? -s.sortDir : 1 }) })),
+      resRows: rows.map(x => {
+        const hi = x.leaves >= max;
+        return {
+          sid: x.sid, name: x.name, unverified: x.unverified, stLabel: STL[x.status][0], stInk: STL[x.status][1],
+          answered: x.status === 'not_started' ? '—' : x.answered + '/40',
+          leaveLabel: hi ? '⚠ ' + x.leaves + ' ครั้ง' : String(x.leaves), leaveInk: hi ? 'var(--danger)' : x.leaves ? 'var(--ink)' : 'var(--ink-3)', leaveWeight: hi ? 700 : 400,
+          scores: C.groups.map((g, i) => ({ v: x.scores ? x.scores[i].toFixed(1) : '—' })), pct: x.pct != null ? x.pct.toFixed(1) + '%' : '—', ref: x.ref,
+          bg: anomalous(x) ? 'var(--warn-soft)' : 'transparent', onClick: () => set({ overlay: 'detail', detail: all.indexOf(x) })
+        };
+      }),
+      resEmpty: rows.length === 0, resEmptyText: all.length === 0 ? 'ยังไม่มีผู้สอบในรอบนี้ นำเข้ารายชื่อจากแท็บรอบสอบ' : 'ไม่พบแถวที่ตรงกับตัวกรอง'
+    };
+  }
+  rvOverlays(set) {
+    const s = this.state, C = window.PSRU_CONFIG, P = window.PSRU, ov = s.overlay;
+    const f = s.form, ed = s.ed, cf = s.confirm;
+    const out = {
+      ovRoundForm: ov === 'roundForm' && !!f, ovCode: ov === 'code', ovConfirm: !!cf, ovImport: ov === 'import', ovEditor: ov === 'editor' && !!ed,
+      ovQImport: ov === 'qimport', ovQExport: ov === 'qexport', ovDetail: ov === 'detail', ovRef: ov === 'refcheck',
+      cfTitle: cf ? cf.title : '', cfBody: cf ? cf.body : '', cfBtn: cf ? cf.btn : '', cfBg: cf && cf.danger ? 'var(--danger)' : 'var(--primary)', cfInk: cf && cf.danger ? 'var(--surface)' : 'var(--primary-ink)',
+      cancelConfirm: () => set({ confirm: null }), doConfirm: () => { const a = cf && cf.action; set({ confirm: null }); a && a(); }
+    };
+    if (f) {
+      const upd = o => set({ form: Object.assign({}, f, o) });
+      const over = f.picks.map((v, i) => v > C.groups[i].bank);
+      const total = f.picks.reduce((a, b) => a + (+b || 0), 0), invalid = !f.name.trim() || over.some(Boolean) || total === 0;
+      Object.assign(out, {
+        formTitle: f.id ? 'แก้ไขรอบสอบ' : 'สร้างรอบสอบ', fName: f.name, fOpen: f.open, fClose: f.close, fDur: f.dur, fLeaves: f.leaves,
+        onFName: e => upd({ name: e.target.value }), onFOpen: e => upd({ open: e.target.value }), onFClose: e => upd({ close: e.target.value }), onFDur: e => upd({ dur: e.target.value }), onFLeaves: e => upd({ leaves: e.target.value }),
+        fPicks: C.groups.map((g, i) => ({ name: g.name, value: f.picks[i], hint: over[i] ? '⚠ เกินจำนวนในคลัง (มี ' + g.bank + ' ข้อ)' : 'มีในคลัง ' + g.bank + ' ข้อ', hintInk: over[i] ? 'var(--danger)' : 'var(--ink-3)', border: over[i] ? 'var(--danger)' : 'var(--line-strong)', onChange: e => { const p = f.picks.slice(); p[i] = Math.max(0, parseInt(e.target.value || '0', 10)); upd({ picks: p }); } })),
+        fTotal: total + ' ข้อ', fInvalid: invalid, fSaveOpacity: invalid ? 0.5 : 1,
+        saveRound: () => { if (invalid) return; this.setState(st => ({ overlay: 'none', rounds: f.id ? st.rounds.map(x => x.id === f.id ? Object.assign({}, x, { name: f.name, duration: +f.dur, maxLeaves: +f.leaves, picks: f.picks }) : x) : [{ id: 'N' + Date.now(), name: f.name, status: 'upcoming', when: '15 พ.ย. 2569 · 09:00–11:00 น.', duration: +f.dur, picks: f.picks, roster: 0, set: 'none', published: false, code: 'NEW1-CODE', maxLeaves: +f.leaves }].concat(st.rounds) })); this.toast('บันทึกรอบสอบแล้ว'); }
+      });
+    }
+    const cr = this.round(s.codeRound) || s.rounds[0];
+    Object.assign(out, { codeRound: cr ? cr.name : '', codeValue: cr ? cr.code : '', copyCode: () => { try { navigator.clipboard.writeText(cr.code); } catch (e) {} this.toast('คัดลอกรหัส ' + cr.code + ' แล้ว'); }, askRegen: () => set({ confirm: this.regenConfirm(cr.id) }) });
+    const step = s.imStep;
+    Object.assign(out, {
+      imSteps: ['นำเข้าข้อมูล', 'ตรวจสอบตัวอย่าง', 'สรุปผล'].map((l, i) => { const n = i + 1, done = n < step, cur = n === step; return { n: done ? '✓' : n, label: l, current: cur ? 'step' : 'false', ink: cur || done ? 'var(--ink)' : 'var(--ink-3)', bg: cur ? 'var(--primary)' : done ? 'var(--ok)' : 'var(--surface-2)', numInk: cur || done ? 'var(--surface)' : 'var(--ink-2)' }; }),
+      imStep1: step === 1, imStep2: step === 2, imStep3: step === 3, imPaste: s.imSrc === 'paste', imFile: s.imSrc === 'file',
+      imSrcTabs: [['paste', 'วางข้อความ'], ['file', 'เลือกไฟล์ CSV / XLSX']].map(([k, l]) => ({ label: l, sel: s.imSrc === k ? 'true' : 'false', border: s.imSrc === k ? 'var(--primary)' : 'var(--line-strong)', bg: s.imSrc === k ? 'var(--primary-soft)' : 'var(--surface)', ink: s.imSrc === k ? 'var(--primary)' : 'var(--ink)', onClick: () => set({ imSrc: k }) })),
+      imSample: '6512345678, นางสาวกานต์ธิดา ใจดี, 6512345678@psru.ac.th\n6512345679, นายธนกฤต ศรีสุข, 6512345679@psru.ac.th\n6512345680, นายณัฐวุฒิ บุญมา, 6512345680@psru.ac.th\n…',
+      imModes: [['add', 'เพิ่มต่อจากรายชื่อเดิม', 'รหัสที่มีอยู่แล้วจะถูกข้าม'], ['replace', 'แทนที่รายชื่อทั้งหมด', 'รายชื่อเดิมของรอบนี้จะถูกลบ']].map(([k, l, d]) => ({ label: l, desc: d, sel: s.imMode === k ? 'true' : 'false', border: s.imMode === k ? 'var(--primary)' : 'var(--line)', bg: s.imMode === k ? 'var(--primary-soft)' : 'var(--surface)', onClick: () => set({ imMode: k }) })),
+      imPreview: [[1, '6512345678', 'นางสาวกานต์ธิดา ใจดี', '6512345678@psru.ac.th', ''], [2, '6512345679', 'นายธนกฤต ศรีสุข', '6512345679@psru.ac.th', ''], [14, '6512345691', 'นางสาวพิมพ์ชนก ทองคำ', 'pimchanok@gmail.com', 'อีเมลไม่ใช่ @psru.ac.th'], [52, '6512345678', 'นายศุภกร วงศ์ใหญ่', '6512345729@psru.ac.th', 'รหัสซ้ำกับแถว 1'], [90, '651234577', 'นางสาวอรอุมา พรหมมา', '651234577@psru.ac.th', 'รหัสไม่ครบ 10 หลัก']].map(([n, sid, name, email, err]) => ({ n, sid, name, email, check: err ? '⚠ ' + err : '✓ ถูกต้อง', ink: err ? 'var(--warn)' : 'var(--ok)', bg: err ? 'var(--warn-soft)' : 'transparent' })),
+      imSkipped: [{ row: 'แถว 14', reason: 'อีเมลไม่ใช่ @psru.ac.th (pimchanok@gmail.com)' }, { row: 'แถว 52', reason: 'รหัสนักศึกษา 6512345678 ซ้ำกับแถว 1' }, { row: 'แถว 90', reason: 'รหัสนักศึกษาไม่ครบ 10 หลัก (651234577)' }],
+      imModeDone: s.imMode === 'replace' ? 'แทนที่รายชื่อเดิมทั้งหมดแล้ว' : 'เพิ่มต่อจากรายชื่อเดิม',
+      imBackLabel: step === 1 ? 'ยกเลิก' : step === 2 ? '← ย้อนกลับ' : 'นำเข้าไฟล์อื่น', imNextLabel: step === 1 ? 'อ่านข้อมูล →' : step === 2 ? 'ยืนยันนำเข้า 126 คน' : 'เสร็จสิ้น',
+      imBack: () => step === 1 ? set({ overlay: 'none' }) : set({ imStep: step === 2 ? 1 : 1 }),
+      imNext: () => { if (step < 3) set({ imStep: step + 1 }); else { this.setState(st => ({ overlay: 'none', rounds: st.rounds.map(x => x.id === st.imRound ? Object.assign({}, x, { roster: st.imMode === 'replace' ? 126 : x.roster + 126 }) : x) })); this.toast('นำเข้ารายชื่อ 126 คนแล้ว'); } }
+    });
+    if (ed) {
+      const upd = o => set({ ed: Object.assign({}, ed, o) });
+      const multi = ed.opts.filter(o => o.correct).length > 1, noCorrect = !ed.opts.some(o => o.correct), invalid = !ed.text.trim() || noCorrect || ed.opts.length < 2;
+      const setOpts = opts => upd({ opts });
+      Object.assign(out, {
+        edTitle: ed.id ? 'แก้ไขข้อสอบ ' + ed.id : 'เพิ่มข้อสอบ', edGroup: ed.group, onEdGroup: e => upd({ group: e.target.value }), groupOptions: C.groups.map(g => ({ key: g.key, name: g.name })),
+        edDiffSeg: DIFF.map((l, i) => ({ label: l, sel: ed.diff === i ? 'true' : 'false', bg: ed.diff === i ? 'var(--primary-soft)' : 'var(--surface)', ink: ed.diff === i ? 'var(--primary)' : 'var(--ink-2)', onClick: () => upd({ diff: i }) })),
+        edText: ed.text, onEdText: e => upd({ text: e.target.value }),
+        edHasImage: ed.image, edImageLabel: ed.image ? 'circuit-diagram.png · 1280 × 720 px' : 'รูปประกอบโจทย์ (ไม่บังคับ) · PNG/JPG ไม่เกิน 2 MB', edImageBtn: ed.image ? 'ลบรูป' : 'เพิ่มรูป', toggleEdImage: () => upd({ image: !ed.image }),
+        edOptHint: ed.opts.length + ' / 10 ตัวเลือก · ติ๊ก “ถูก” ได้มากกว่า 1 ข้อ',
+        edOpts: ed.opts.map((o, i) => ({
+          letter: LETTERS[i], text: o.text, aria: 'ตัวเลือก ' + LETTERS[i], border: o.correct ? 'var(--ok)' : 'var(--line)', bg: o.correct ? 'var(--ok-soft)' : 'var(--surface)',
+          correctAria: o.correct ? 'true' : 'false', cLabel: o.correct ? '✓ ถูก' : 'ถูก', cBorder: o.correct ? 'var(--ok)' : 'var(--line-strong)', cBg: o.correct ? 'var(--ok)' : 'var(--surface)', cInk: o.correct ? 'var(--surface)' : 'var(--ink-2)',
+          onText: e => setOpts(ed.opts.map((x, k) => k === i ? Object.assign({}, x, { text: e.target.value }) : x)),
+          onCorrect: () => setOpts(ed.opts.map((x, k) => k === i ? Object.assign({}, x, { correct: !x.correct }) : x)),
+          onUp: () => { if (i > 0) { const a = ed.opts.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; setOpts(a); } },
+          onDown: () => { if (i < ed.opts.length - 1) { const a = ed.opts.slice(); [a[i + 1], a[i]] = [a[i], a[i + 1]]; setOpts(a); } },
+          onDel: () => ed.opts.length > 2 && setOpts(ed.opts.filter((_, k) => k !== i))
+        })),
+        addOpt: () => ed.opts.length < 10 && setOpts(ed.opts.concat([{ text: '', correct: false }])), addOptDisabled: ed.opts.length >= 10, addOptOpacity: ed.opts.length >= 10 ? 0.5 : 1,
+        pvType: multi ? 'เลือกได้มากกว่า 1 ข้อ' : 'เลือก 1 ข้อ', pvRadius: multi ? '3px' : '50%',
+        edMsg: !ed.text.trim() ? 'กรอกโจทย์ก่อนบันทึก' : noCorrect ? '⚠ ยังไม่ได้เลือกคำตอบที่ถูก' : multi ? 'ประเภท: เลือกได้มากกว่า 1 ข้อ (กำหนดจากจำนวนคำตอบที่ถูก)' : 'ประเภท: เลือก 1 ข้อ',
+        edMsgInk: invalid ? 'var(--warn)' : 'var(--ink-2)', edInvalid: invalid, edSaveOpacity: invalid ? 0.5 : 1,
+        saveQuestion: () => { if (invalid) return; this.setState(st => { const nq = { id: ed.id || 'Q-NEW-' + String(st.bank.length + 1).padStart(3, '0'), group: ed.group, type: multi ? 'multi' : 'single', text: ed.text, image: ed.image, diff: ed.diff, options: ed.opts }; return { overlay: 'none', bank: ed.id ? st.bank.map(x => x.id === ed.id ? nq : x) : [nq].concat(st.bank) }; }); this.toast('บันทึกข้อสอบแล้ว'); }
+      });
+    }
+    Object.assign(out, {
+      qiFile: s.qiPicked ? 'question-bank-2569.json · 1.8 MB' : 'ยังไม่ได้เลือกไฟล์', qiFileInk: s.qiPicked ? 'var(--ink)' : 'var(--ink-3)', qiPick: () => set({ qiPicked: true }), qiPicked: s.qiPicked, qiOpacity: s.qiPicked ? 1 : 0.5,
+      qiDupModes: [['skip', 'ข้าม (เก็บของเดิม)'], ['overwrite', 'เขียนทับด้วยไฟล์ใหม่']].map(([k, l]) => ({ label: l, sel: s.qiDup === k ? 'true' : 'false', border: s.qiDup === k ? 'var(--primary)' : 'var(--line)', bg: s.qiDup === k ? 'var(--primary-soft)' : 'var(--surface)', onClick: () => set({ qiDup: k }) })),
+      qiDupLine: s.qiDup === 'skip' ? 'รหัสซ้ำ 3 ข้อ: ข้าม เก็บของเดิมไว้' : 'รหัสซ้ำ 3 ข้อ: เขียนทับด้วยข้อมูลจากไฟล์',
+      qiDo: () => { if (!s.qiPicked) return; set({ overlay: 'none' }); this.toast('นำเข้าแล้ว: เพิ่มใหม่ 42 · ' + (s.qiDup === 'skip' ? 'ข้าม' : 'เขียนทับ') + ' 3 · ข้าม 1'); },
+      qeFormats: [['JSON พร้อมรูป', 'ฝังรูปทุกใบไว้ในไฟล์เดียว นำเข้ากลับได้ ไฟล์ใหญ่ขึ้นตามจำนวนรูป'], ['JSON (ไม่มีรูป)', 'เก็บเฉพาะรหัสอ้างอิงรูป'], ['CSV', 'เปิดด้วย Excel ได้ ไม่รวมรูป']].map(([l, d], i) => ({ label: l, desc: d, sel: s.qeFmt === i ? 'true' : 'false', border: s.qeFmt === i ? 'var(--primary)' : 'var(--line)', bg: s.qeFmt === i ? 'var(--primary-soft)' : 'var(--surface)', onClick: () => set({ qeFmt: i }) })),
+      qeDo: () => { set({ overlay: 'none' }); this.toast('ดาวน์โหลดไฟล์แล้ว'); }
+    });
+    const rr = this.round(s.resRound) || s.rounds[0], all = (rr && s.results[rr.id]) || [], d = all[s.detail];
+    if (d) {
+      const R = P.results(C);
+      Object.assign(out, {
+        dtName: d.name, dtSub: d.sid + ' · ' + rr.name,
+        dtInfo: [['อีเมล', d.sid + '@psru.ac.th' + (d.unverified ? ' (ยังไม่ยืนยัน)' : '')], ['สถานะ', { submitted: 'ส่งแล้ว', in_progress: 'กำลังสอบ', not_started: 'ยังไม่เริ่ม' }[d.status]], ['เริ่มสอบ', d.started], ['ส่งข้อสอบ', d.submitted], ['ตอบแล้ว', d.answered + ' / 40 ข้อ'], ['เลขอ้างอิง', d.ref]].map(([k, v]) => ({ k, v })),
+        dtHasScore: !!d.scores, dtTotal: d.pct != null ? d.pct.toFixed(1) + '%' : '', dtAxes: C.groups.map(g => g.short), dtValues: d.scores || [], dtAvg: R.rows.map(x => x.avg),
+        dtLogTitle: 'ประวัติการออกนอกหน้าจอ (' + d.leaves + ' ครั้ง)', dtLog: d.log, dtNoLog: d.log.length === 0
+      });
+    }
+    const found = s.refResult === 'ok' ? (all.find(x => x.ref.toUpperCase() === s.refInput.trim().toUpperCase()) || all[0]) : null;
+    Object.assign(out, {
+      refInput: s.refInput, onRefInput: e => set({ refInput: e.target.value.toUpperCase(), refResult: null }),
+      checkRef: () => { const v = s.refInput.trim().toUpperCase(); const hit = Object.values(s.results).flat().some(x => x.ref === v); set({ refResult: hit ? 'ok' : 'bad' }); },
+      refOk: s.refResult === 'ok', refBad: s.refResult === 'bad',
+      refInfo: found ? [['ชื่อ-สกุล', found.name], ['รหัสนักศึกษา', found.sid], ['รอบสอบ', rr.name], ['ส่งข้อสอบ', found.submitted], ['คะแนนรวม', found.pct != null ? found.pct.toFixed(1) + '%' : '—']].map(([k, v]) => ({ k, v })) : [],
+      refHint: 'ลองเลขของผู้สอบคนแรก: ' + C.result.ref
+    });
+    return out;
+  }
+}
+</script>
+</body>
+</html>
