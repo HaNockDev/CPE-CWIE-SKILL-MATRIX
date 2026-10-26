@@ -242,18 +242,23 @@ student.post('/event', wrap(async (req, res) => {
   const { round, att } = req;
   if (!att || att.status !== 'in_progress') return res.json({ status: att ? att.status : 'none', leaves: att ? att.leaves : 0 });
   const kind = req.body.kind === 'fullscreen' ? 'fullscreen' : 'tab';
-  const dur = Number.isFinite(+req.body.durationMs) ? Math.round(+req.body.durationMs) : null;
-  await run('INSERT INTO events (round_id, sid, at, kind, duration_ms) VALUES (?,?,?,?,?)', [round.id, att.sid, Date.now(), kind, dur]);
+  // a tab switch is reported when the student comes back, with how long they were away: store the moment they left
+  const dur = req.body.durationMs != null && Number.isFinite(+req.body.durationMs) ? Math.max(0, Math.round(+req.body.durationMs)) : null;
+  const ins = await run('INSERT INTO events (round_id, sid, at, kind, duration_ms) VALUES (?,?,?,?,?)', [round.id, att.sid, Date.now() - (dur || 0), kind, dur]);
+  const eventId = Number(ins.lastInsertRowid);
   await run('UPDATE attempts SET leaves = leaves + 1 WHERE round_id = ? AND sid = ?', [round.id, att.sid]);
   const a = await getAttempt(round.id, att.sid);
-  if (a.leaves > round.maxLeaves) { await finalize(round, a, 'leaves'); return res.json({ status: 'submitted', leaves: a.leaves, autoReason: 'leaves' }); }
-  res.json({ status: a.status, leaves: a.leaves, maxLeaves: round.maxLeaves });
+  if (a.leaves > round.maxLeaves) { await finalize(round, a, 'leaves'); return res.json({ status: 'submitted', leaves: a.leaves, autoReason: 'leaves', eventId }); }
+  res.json({ status: a.status, leaves: a.leaves, maxLeaves: round.maxLeaves, eventId });
 }));
 
 student.post('/event-duration', wrap(async (req, res) => {
-  // updates the duration of the last leave event once the student comes back
-  const dur = Math.round(Number(req.body.durationMs) || 0);
-  await run('UPDATE events SET duration_ms = ? WHERE id = (SELECT MAX(id) FROM events WHERE round_id = ? AND sid = ?)', [dur, req.round.id, req.stu.sid]);
+  // sets how long a leave lasted once the student is back (e.g. re-entered fullscreen)
+  // kind 'tab' reclassifies a fullscreen exit that was really caused by switching tab/app
+  const dur = Math.max(0, Math.round(Number(req.body.durationMs) || 0)), id = Number(req.body.eventId);
+  if (Number.isInteger(id) && id > 0 && req.body.kind === 'tab') await run("UPDATE events SET duration_ms = ?, kind = 'tab' WHERE id = ? AND round_id = ? AND sid = ? AND duration_ms IS NULL", [dur, id, req.round.id, req.stu.sid]);
+  else if (Number.isInteger(id) && id > 0) await run('UPDATE events SET duration_ms = ? WHERE id = ? AND round_id = ? AND sid = ? AND duration_ms IS NULL', [dur, id, req.round.id, req.stu.sid]);
+  else await run('UPDATE events SET duration_ms = ? WHERE id = (SELECT MAX(id) FROM events WHERE round_id = ? AND sid = ?) AND duration_ms IS NULL', [dur, req.round.id, req.stu.sid]);
   res.json({ ok: true });
 }));
 
@@ -649,6 +654,13 @@ admin.get('/results/:rid', wrap(async (req, res) => {
     WHERE r.round_id = ? ORDER BY r.sid`, [round.id]);
   const now = Date.now();
   const { avg, participants } = await roundAverages(round.id);
+  const ev = {};
+  for (const e of await all('SELECT sid, at, kind, duration_ms FROM events WHERE round_id = ? ORDER BY at', [round.id])) {
+    const x = ev[e.sid] ||= { fsCount: 0, tabCount: 0, awayMs: 0, unknownDur: 0, log: [] };
+    x[e.kind === 'fullscreen' ? 'fsCount' : 'tabCount']++;
+    if (e.duration_ms != null) x.awayMs += Number(e.duration_ms); else x.unknownDur++;
+    x.log.push({ at: Number(e.at), kind: e.kind, durationMs: e.duration_ms != null ? Number(e.duration_ms) : null });
+  }
   res.json({
     round, avg, participants,
     rows: rows.map(r => {
@@ -658,6 +670,7 @@ admin.get('/results/:rid', wrap(async (req, res) => {
         sid: r.sid, name: r.name, email: r.email, emailVerified: !!Number(r.email_verified), status,
         answered: Object.keys(J(r.answers, {})).length, total: J(r.question_ids, []).length, leaves: Number(r.leaves || 0),
         startedAt: r.started_at && Number(r.started_at), submittedAt: r.submitted_at && Number(r.submitted_at), autoReason: r.auto_reason || '',
+        away: ev[r.sid] || { fsCount: 0, tabCount: 0, awayMs: 0, unknownDur: 0, log: [] },
         ref: r.ref || null, scores: r.groups ? Object.fromEntries(J(r.groups, []).map(g => [g.key, g.score])) : null, pct: r.pct != null ? Number(r.pct) : null
       };
     })

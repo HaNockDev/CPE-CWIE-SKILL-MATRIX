@@ -596,6 +596,10 @@ function CoursesModal({ ctx, onClose }) {
 }
 
 // ================= A3 Results =================
+// time away from the exam screen, e.g. "45 วิ" / "2 นาที 05 วิ"
+const fmtDur = ms => { const t = Math.round(ms / 1000), m = Math.floor(t / 60), sec = t % 60; return m ? m + ' นาที ' + String(sec).padStart(2, '0') + ' วิ' : sec + ' วิ'; };
+const awayLabel = a => a.awayMs || a.unknownDur ? fmtDur(a.awayMs) + (a.unknownDur ? ' +' : '') : '—';
+const KIND = { fullscreen: 'ออกจากเต็มหน้าจอ', tab: 'สลับแอป/แท็บ' };
 const STL = { submitted: ['ส่งแล้ว', 'var(--ok)'], submitted_pending: ['หมดเวลา (รอประมวลผล)', 'var(--ok)'], in_progress: ['กำลังสอบ', 'var(--primary)'], not_started: ['ยังไม่เริ่ม', 'var(--ink-3)'] };
 
 function ResultsTab({ ctx }) {
@@ -611,10 +615,10 @@ function ResultsTab({ ctx }) {
   const qq = q.trim().toLowerCase();
   const cnt = s => all.filter(x => s === 'submitted' ? x.status.startsWith('submitted') : x.status === s).length;
   let rows = all.filter(x => (stat === 'all' || (stat === 'submitted' ? x.status.startsWith('submitted') : x.status === stat)) && (!anom || anomalous(x)) && (!qq || x.sid.includes(qq) || x.name.toLowerCase().includes(qq)));
-  const val = (x, k) => k.startsWith('g:') ? (x.scores ? x.scores[k.slice(2)] ?? -1 : -1) : k === 'pct' ? (x.pct ?? -1) : x[k] ?? '';
+  const val = (x, k) => k === 'fs' ? x.away.fsCount : k === 'tab' ? x.away.tabCount : k === 'away' ? x.away.awayMs : k.startsWith('g:') ? (x.scores ? x.scores[k.slice(2)] ?? -1 : -1) : k === 'pct' ? (x.pct ?? -1) : x[k] ?? '';
   rows = rows.slice().sort((a, b) => { const A = val(a, sort[0]), B = val(b, sort[0]); return (A > B ? 1 : A < B ? -1 : 0) * sort[1]; });
   const groupsUsed = meta.groups.filter(g => r && r.picks[g.key]);
-  const cols = [['sid', 'รหัส'], ['name', 'ชื่อ-สกุล'], ['status', 'สถานะ'], ['answered', 'ตอบ', 1], ['leaves', 'ออกนอกจอ', 1]].concat(groupsUsed.map(g => ['g:' + g.key, g.short, 1])).concat([['pct', 'รวม %', 1], ['ref', 'เลขอ้างอิง']]);
+  const cols = [['sid', 'รหัส'], ['name', 'ชื่อ-สกุล'], ['status', 'สถานะ'], ['answered', 'ตอบ', 1], ['leaves', 'ออกนอกจอ', 1], ['fs', 'เต็มจอ', 1], ['tab', 'สลับแท็บ', 1], ['away', 'เวลานอกจอ', 1]].concat(groupsUsed.map(g => ['g:' + g.key, g.short, 1])).concat([['pct', 'รวม %', 1], ['ref', 'เลขอ้างอิง']]);
   const publish = async () => {
     if (pub != null) return;
     setPub(5); const t = setInterval(() => setPub(p => p == null ? p : Math.min(92, p + 7)), 160);
@@ -622,8 +626,9 @@ function ResultsTab({ ctx }) {
     catch (e) { clearInterval(t); setPub(null); ctx.toast(e.message, 'error'); }
   };
   const exportCsv = () => {
-    const head = ['รหัสนักศึกษา', 'ชื่อ-สกุล', 'อีเมล', 'สถานะ', 'ตอบ', 'ทั้งหมด', 'ออกนอกจอ'].concat(groupsUsed.map(g => g.name + ' (เต็ม 5)')).concat(['รวม %', 'เลขอ้างอิง', 'เริ่มสอบ', 'ส่งข้อสอบ', 'ส่งอัตโนมัติ']);
-    const body = rows.map(x => [x.sid, x.name, x.email, STL[x.status][0], x.answered, x.total, x.leaves].concat(groupsUsed.map(g => x.scores && x.scores[g.key] != null ? x.scores[g.key].toFixed(1) : '')).concat([x.pct != null ? x.pct.toFixed(1) : '', x.ref || '', x.startedAt ? thDateTime(x.startedAt) : '', x.submittedAt ? thDateTime(x.submittedAt) : '', x.autoReason === 'time' ? 'หมดเวลา' : x.autoReason === 'leaves' ? 'ออกนอกจอเกิน' : '']));
+    const times = (x, k) => x.away.log.filter(l => l.kind === k).map(l => thTime(l.at, true) + ' (' + (l.durationMs != null ? fmtDur(l.durationMs) : 'ไม่ทราบระยะเวลา') + ')').join('; ');
+    const head = ['รหัสนักศึกษา', 'ชื่อ-สกุล', 'อีเมล', 'สถานะ', 'ตอบ', 'ทั้งหมด', 'ออกนอกจอรวม (ครั้ง)', 'ออกจากเต็มจอ (ครั้ง)', 'เวลาที่ออกจากเต็มจอ', 'สลับแท็บ (ครั้ง)', 'เวลาที่สลับแท็บ', 'เวลานอกจอรวม (วินาที)'].concat(groupsUsed.map(g => g.name + ' (เต็ม 5)')).concat(['รวม %', 'เลขอ้างอิง', 'เริ่มสอบ', 'ส่งข้อสอบ', 'ส่งอัตโนมัติ']);
+    const body = rows.map(x => [x.sid, x.name, x.email, STL[x.status][0], x.answered, x.total, x.leaves, x.away.fsCount, times(x, 'fullscreen'), x.away.tabCount, times(x, 'tab'), Math.round(x.away.awayMs / 1000)].concat(groupsUsed.map(g => x.scores && x.scores[g.key] != null ? x.scores[g.key].toFixed(1) : '')).concat([x.pct != null ? x.pct.toFixed(1) : '', x.ref || '', x.startedAt ? thDateTime(x.startedAt) : '', x.submittedAt ? thDateTime(x.submittedAt) : '', x.autoReason === 'time' ? 'หมดเวลา' : x.autoReason === 'leaves' ? 'ออกนอกจอเกิน' : '']));
     downloadBlob('results-' + rid + '.csv', csvBlob([head].concat(body)));
     ctx.toast('ส่งออก ' + rows.length + ' แถวเป็น CSV แล้ว');
   };
@@ -654,7 +659,7 @@ function ResultsTab({ ctx }) {
         </div>
       </div>
       <div style="max-height:min(560px,calc(100dvh - 330px));min-height:240px;overflow:auto">
-        <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:14px;min-width:1100px">
+        <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:14px;min-width:1360px">
           <thead><tr>${cols.map(([k, l, num]) => html`<th aria-sort=${sort[0] === k ? (sort[1] > 0 ? 'ascending' : 'descending') : 'none'} style=${`position:sticky;top:0;z-index:1;background:var(--surface-2);border-bottom:1px solid var(--line-strong);padding:0;text-align:${num ? 'right' : 'left'};font-weight:600;color:var(--ink-2)`}>
             <button onClick=${() => setSort([k, sort[0] === k ? -sort[1] : 1])} style=${`width:100%;height:44px;padding:0 10px;border:none;background:transparent;color:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;justify-content:${num ? 'flex-end' : 'flex-start'};white-space:nowrap`}>${l}<span style="font-size:11px;color:var(--primary)">${sort[0] === k ? (sort[1] > 0 ? '▲' : '▼') : ''}</span></button></th>`)}</tr></thead>
           <tbody>${rows.map(x => { const hi = x.leaves >= max; return html`<tr key=${x.sid} class="h-row" onClick=${() => ctx.open({ kind: 'detail', round: r, row: x })} tabindex="0" onKeyDown=${e => e.key === 'Enter' && ctx.open({ kind: 'detail', round: r, row: x })} style=${`cursor:pointer;background:${anomalous(x) ? 'var(--warn-soft)' : 'transparent'}`}>
@@ -663,6 +668,9 @@ function ResultsTab({ ctx }) {
             <td style=${td}><span style=${`display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:${STL[x.status][1]};white-space:nowrap`}><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span>${STL[x.status][0]}</span></td>
             <td style=${td + ';text-align:right;' + MONO}>${x.status === 'not_started' ? '—' : x.answered + '/' + x.total}</td>
             <td style=${td + ';text-align:right'}><span style=${`font-weight:${hi ? 700 : 400};color:${hi ? 'var(--danger)' : x.leaves ? 'var(--ink)' : 'var(--ink-3)'}`}>${hi ? '⚠ ' + x.leaves + ' ครั้ง' : x.leaves}</span></td>
+            <td style=${td + ';text-align:right;' + MONO + ';color:' + (x.away.fsCount ? 'var(--ink)' : 'var(--ink-3)')}>${x.away.fsCount}</td>
+            <td style=${td + ';text-align:right;' + MONO + ';color:' + (x.away.tabCount ? 'var(--ink)' : 'var(--ink-3)')}>${x.away.tabCount}</td>
+            <td style=${td + ';text-align:right;white-space:nowrap;color:' + (x.away.awayMs ? 'var(--ink)' : 'var(--ink-3)')} title=${x.away.unknownDur ? 'มี ' + x.away.unknownDur + ' ครั้งที่ยังไม่ทราบระยะเวลา' : undefined}>${awayLabel(x.away)}</td>
             ${groupsUsed.map(g => html`<td style=${td + ';text-align:right;' + MONO}>${x.scores && x.scores[g.key] != null ? x.scores[g.key].toFixed(1) : '—'}</td>`)}
             <td style=${td + ';text-align:right;font-weight:700'}>${x.pct != null ? x.pct.toFixed(1) + '%' : '—'}</td>
             <td style=${td + ';font-size:12px;color:var(--ink-2);' + MONO}>${x.ref || '—'}</td>
@@ -739,8 +747,12 @@ function Detail({ round, row, onClose }) {
         </div>`}
         <div style="display:flex;flex-direction:column;gap:8px">
           <strong>ประวัติการออกนอกหน้าจอ (${row.leaves} ครั้ง)</strong>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            ${[['ออกจากเต็มจอ', row.away.fsCount + ' ครั้ง'], ['สลับแอป/แท็บ', row.away.tabCount + ' ครั้ง'], ['เวลานอกจอรวม', awayLabel(row.away)]].map(([k, v]) => html`<div style="border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;line-height:1.4"><span style="font-size:12px;color:var(--ink-3)">${k}</span><strong style="font-size:16px">${v}</strong></div>`)}
+          </div>
           ${!d && html`<span style="color:var(--ink-2);font-size:14px">กำลังโหลด…</span>`}
-          ${d && d.events.map(l => html`<div style="display:flex;gap:12px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--surface-2);font-size:14px"><span style=${MONO + ';flex:none'}>${thTime(l.at, true)}</span><span style="flex:1">${l.kind === 'fullscreen' ? 'ออกจากโหมดเต็มหน้าจอ' : 'สลับแอป/แท็บ'}</span><span style="color:var(--ink-3);font-size:13px">${l.durationMs != null ? Math.round(l.durationMs / 1000) + ' วินาที' : ''}</span></div>`)}
+          ${d && d.events.map((l, i) => html`<div style="display:flex;gap:12px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--surface-2);font-size:14px"><span style="color:var(--ink-3);width:22px;flex:none">${i + 1}.</span><span style=${MONO + ';flex:none'}>${thTime(l.at, true)}</span><span style="flex:1">${KIND[l.kind] || l.kind}</span><span style="color:var(--ink-3);font-size:13px;white-space:nowrap">${l.durationMs != null ? 'นาน ' + fmtDur(l.durationMs) : 'ไม่ทราบระยะเวลา'}</span></div>`)}
+          ${row.away.unknownDur > 0 && html`<span style="font-size:12px;color:var(--ink-3)">“ไม่ทราบระยะเวลา” = ไม่ได้กลับเข้าโหมดเต็มหน้าจอ หรือส่งข้อสอบระหว่างที่อยู่นอกหน้าจอ เวลานอกจอรวมที่มีเครื่องหมาย + จึงอาจมากกว่าที่แสดง</span>`}
           ${d && !d.events.length && html`<span style="color:var(--ink-2);font-size:14px">ไม่พบการออกนอกหน้าจอ</span>`}
         </div>
       </div>

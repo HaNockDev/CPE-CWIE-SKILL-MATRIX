@@ -284,22 +284,36 @@ function Exam({ token, roundName, exam, setExam, desktop, onSubmitted, onToast }
 
   // leave detection (tab switch / exit fullscreen)
   useEffect(() => {
-    let hiddenAt = null, wasFs = !!document.fullscreenElement, last = 0;
-    const report = async kind => {
-      if (S.current.finished) return;
-      const now = Date.now(); if (now - last < 2000) return; last = now; // one physical leave can fire both events
+    let hiddenAt = null, wasFs = !!document.fullscreenElement, fsLeftAt = null, fsEvent = null;
+    const report = async (kind, durationMs) => {
+      if (S.current.finished) return null;
       try {
-        const r = await api('/student/event', { method: 'POST', token, body: { kind } });
-        if (r.status === 'submitted') { S.current.finished = true; setOv('lock_submitting'); setTimeout(onSubmitted, 1200); return; }
+        const r = await api('/student/event', { method: 'POST', token, body: { kind, durationMs } });
+        if (r.status === 'submitted') { S.current.finished = true; setOv('lock_submitting'); setTimeout(onSubmitted, 1200); return null; }
         setExam({ ...S.current.exam, leaves: r.leaves });
         setOv(kind === 'fullscreen' ? 'lock_fs' : 'lock_tab');
-      } catch (e) { if (e.status === 409) onSubmitted(); }
+        return r.eventId;
+      } catch (e) { if (e.status === 409) onSubmitted(); return null; }
     };
+    // a tab switch is reported on return, with how long the student was away
     const onVis = () => {
-      if (document.visibilityState === 'hidden') hiddenAt = Date.now();
-      else if (hiddenAt) { const d = Date.now() - hiddenAt; hiddenAt = null; report('tab').then(() => api('/student/event-duration', { method: 'POST', token, body: { durationMs: d } }).catch(() => {})); }
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+      if (!hiddenAt) return;
+      const away = Date.now() - hiddenAt;
+      // switching tabs also drops fullscreen: count that single leave once, as a tab switch
+      const sameLeave = fsLeftAt && Math.abs(fsLeftAt - hiddenAt) < 2000;
+      hiddenAt = null;
+      if (!sameLeave) { report('tab', away); return; }
+      const ev = fsEvent; fsLeftAt = null; fsEvent = null;
+      ev.then(id => id && api('/student/event-duration', { method: 'POST', token, body: { durationMs: away, eventId: id, kind: 'tab' } }).catch(() => {}));
     };
-    const onFs = () => { if (document.fullscreenElement) wasFs = true; else if (wasFs) { wasFs = false; report('fullscreen'); } };
+    // a fullscreen exit is reported at once; its duration is sent when the student re-enters fullscreen
+    const onFs = async () => {
+      if (document.fullscreenElement) {
+        wasFs = true;
+        if (fsLeftAt) { const d = Date.now() - fsLeftAt, id = await fsEvent; fsLeftAt = null; fsEvent = null; api('/student/event-duration', { method: 'POST', token, body: { durationMs: d, eventId: id } }).catch(() => {}); }
+      } else if (wasFs) { wasFs = false; fsLeftAt = Date.now(); fsEvent = report('fullscreen'); }
+    };
     document.addEventListener('visibilitychange', onVis);
     document.addEventListener('fullscreenchange', onFs);
     return () => { document.removeEventListener('visibilitychange', onVis); document.removeEventListener('fullscreenchange', onFs); };
