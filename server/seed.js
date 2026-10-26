@@ -7,6 +7,25 @@ export const DEFAULT_GROUPS = [
   { key: 'soft', name: 'Soft Skill', short: 'Soft Skill' }
 ];
 
+// รายวิชาที่ใช้ติด tag ข้อสอบ (เพิ่มเฉพาะ tag ที่ยังไม่มี ไม่ทับชื่อที่แก้ไว้ในฐานข้อมูล)
+export const DEFAULT_COURSES = [
+  ['comprog', 'CPEN113', 'การเขียนโปรแกรมคอมพิวเตอร์สำหรับงานวิศวกรรม'],
+  ['algorithm', 'CPEN122', 'อัลกอริทึมและโครงสร้างข้อมูล'],
+  ['database', 'CPEN251', 'ระบบฐานข้อมูลและอีอาร์พี'],
+  ['advcomprog', 'CPEN252', 'การเขียนโปรแกรมคอมพิวเตอร์ขั้นสูง'],
+  ['soften', 'CPEN253', 'วิศวกรรมซอฟต์แวร์'],
+  ['electric', 'CPEN111', 'วิเคราะห์วงจรไฟฟ้าและอิเล็กทรอนิกส์สำหรับวิศวกรรมคอมพิวเตอร์'],
+  ['network', 'CPEN221', 'เครือข่ายคอมพิวเตอร์'],
+  ['digital', 'CPEN231', 'การออกแบบระบบดิจิทัล'],
+  ['automation', 'CPEN241', 'ระบบอัตโนมัติ'],
+  ['iiot', 'CPEN331', 'อินเทอร์เน็ตในทุกสรรพสิ่งสำหรับอุตสาหกรรม'],
+  ['irobot', 'CPEN341', 'หุ่นยนต์อุตสาหกรรมและการประยุกต์ในกระบวนการผลิต']
+];
+
+export async function ensureCourses() {
+  await db.batch(DEFAULT_COURSES.map(([tag, code, name], i) => ({ sql: 'INSERT OR IGNORE INTO courses (tag, code, name, sort) VALUES (?,?,?,?)', args: [tag, code, name, i + 1] })), 'write');
+}
+
 // Sample bank (from the design's config.js) — `c` marks the correct option indices
 const SAMPLE = {
   sw: [

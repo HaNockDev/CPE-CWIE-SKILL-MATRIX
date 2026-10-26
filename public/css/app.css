@@ -27,3 +27,7 @@ tr.h-row:hover{background:var(--primary-soft)!important}
 input::placeholder,textarea::placeholder{color:var(--ink-3)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media print{#app{position:static;height:auto;overflow:visible}}
+/* tooltip: <span class="tip" data-tip="…"> — shows on hover and keyboard focus */
+.tip{position:relative}
+.tip::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:6px 10px;border-radius:8px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;line-height:1.5;white-space:normal;text-align:left;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .12s .25s;z-index:70}
+.tip:hover::after,.tip:focus-visible::after{opacity:1}

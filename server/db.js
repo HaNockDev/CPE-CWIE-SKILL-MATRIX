@@ -59,6 +59,8 @@ const SCHEMA = [
     round_id TEXT NOT NULL REFERENCES rounds(id) ON DELETE CASCADE, sid TEXT NOT NULL,
     ref TEXT NOT NULL UNIQUE, groups TEXT NOT NULL, correct INTEGER NOT NULL, total INTEGER NOT NULL,
     pct REAL NOT NULL, scored_at INTEGER NOT NULL, PRIMARY KEY (round_id, sid))`,
+  `CREATE TABLE IF NOT EXISTS courses (
+    tag TEXT PRIMARY KEY, code TEXT NOT NULL, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0)`,
   `CREATE TABLE IF NOT EXISTS email_outbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT, to_addr TEXT NOT NULL, subject TEXT NOT NULL,
     body TEXT NOT NULL, created_at INTEGER NOT NULL, sent_at INTEGER, error TEXT)`
@@ -69,10 +71,18 @@ export function init() {
   if (!ready) ready = (async () => {
     await db.execute('PRAGMA foreign_keys = ON').catch(() => {});
     await db.batch(SCHEMA, 'write');
-    const { seedIfEmpty } = await import('./seed.js');
+    await migrate();
+    const { seedIfEmpty, ensureCourses } = await import('./seed.js');
     await seedIfEmpty();
+    await ensureCourses();
   })();
   return ready;
+}
+
+// Columns added after the first release — existing databases get them on startup, data is kept
+async function migrate() {
+  const cols = (await db.execute('PRAGMA table_info(questions)')).rows.map(r => r.name);
+  if (!cols.includes('tags')) await db.execute("ALTER TABLE questions ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
 }
 
 export async function all(sql, args = []) { return (await db.execute({ sql, args })).rows; }

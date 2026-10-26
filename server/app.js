@@ -22,9 +22,10 @@ const baseUrl = req => process.env.PUBLIC_URL || ((req.headers['x-forwarded-prot
 
 // ---------- data helpers ----------
 async function groups() { return all('SELECT key, name, short FROM groups ORDER BY sort, key'); }
+async function courses() { return all('SELECT tag, code, name FROM courses ORDER BY sort, code'); }
 
 function parseQ(r) {
-  return { id: r.id, group_key: r.group_key, type: r.type, text: r.text, image: r.image || null, options: J(r.options, []), explain: r.explain || '', difficulty: Number(r.difficulty), points: Number(r.points) };
+  return { id: r.id, group_key: r.group_key, type: r.type, text: r.text, image: r.image || null, options: J(r.options, []), explain: r.explain || '', difficulty: Number(r.difficulty), points: Number(r.points), tags: J(r.tags, []) };
 }
 async function questionsByIds(ids) {
   if (!ids.length) return {};
@@ -296,7 +297,7 @@ admin.use(requireRole('admin'));
 admin.get('/meta', wrap(async (req, res) => {
   const gs = await all('SELECT g.key, g.name, g.short, (SELECT COUNT(*) FROM questions q WHERE q.group_key = g.key) AS bank FROM groups g ORDER BY g.sort');
   res.json({
-    groups: gs.map(g => ({ ...g, bank: Number(g.bank) })),
+    groups: gs.map(g => ({ ...g, bank: Number(g.bank) })), courses: await courses(),
     defaultPassword: adminPassword() === DEFAULT_ADMIN_PASSWORD, ephemeral: isEphemeral,
     db: dbUrl.startsWith('file:') ? 'sqlite-file' : 'libsql-remote', smtp: !!process.env.SMTP_HOST, emailDomain: EMAIL_DOMAIN
   });
@@ -405,7 +406,7 @@ admin.post('/rounds/:id/roster', wrap(async (req, res) => {
 }));
 
 // question bank
-function questionInput(b, gs) {
+function questionInput(b, gs, cs = []) {
   const group = String(b.group_key || b.group || '');
   if (!gs.some(g => g.key === group)) return { error: 'กลุ่มวิชาไม่ถูกต้อง' };
   const text = String(b.text || '').trim();
@@ -416,7 +417,13 @@ function questionInput(b, gs) {
   const nCorrect = options.filter(o => o.correct).length;
   if (!nCorrect) return { error: 'ไม่มีตัวเลือกที่ถูก' };
   const type = b.type === 'multi' || nCorrect > 1 ? 'multi' : 'single';
-  return { group_key: group, type, text, image: b.image || null, options, explain: String(b.explain || ''), difficulty: [0, 1, 2].includes(+b.difficulty) ? +b.difficulty : 1, points: Math.max(1, Math.round(+b.points || 1)) };
+  return { group_key: group, type, text, image: b.image || null, options, explain: String(b.explain || ''), difficulty: [0, 1, 2].includes(+b.difficulty) ? +b.difficulty : 1, points: Math.max(1, Math.round(+b.points || 1)),
+    tags: cleanTags(b.tags, cs) };
+}
+// course tags: keep only known tags, in the catalogue's order
+function cleanTags(tags, cs) {
+  const want = new Set((Array.isArray(tags) ? tags : []).map(String));
+  return cs.filter(c => want.has(c.tag)).map(c => c.tag);
 }
 async function nextQuestionId(group) {
   const prefix = 'Q-' + group.slice(0, 2).toUpperCase() + '-';
@@ -425,16 +432,16 @@ async function nextQuestionId(group) {
   return prefix + String(max + 1).padStart(3, '0');
 }
 async function upsertQuestion(id, v, now = Date.now()) {
-  await run(`INSERT INTO questions (id,group_key,type,text,image,options,explain,difficulty,points,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET group_key=excluded.group_key, type=excluded.type, text=excluded.text, image=excluded.image, options=excluded.options, explain=excluded.explain, difficulty=excluded.difficulty, points=excluded.points, updated_at=excluded.updated_at`,
-  [id, v.group_key, v.type, v.text, v.image, JSON.stringify(v.options), v.explain, v.difficulty, v.points, now, now]);
+  await run(`INSERT INTO questions (id,group_key,type,text,image,options,explain,difficulty,points,tags,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET group_key=excluded.group_key, type=excluded.type, text=excluded.text, image=excluded.image, options=excluded.options, explain=excluded.explain, difficulty=excluded.difficulty, points=excluded.points, tags=excluded.tags, updated_at=excluded.updated_at`,
+  [id, v.group_key, v.type, v.text, v.image, JSON.stringify(v.options), v.explain, v.difficulty, v.points, JSON.stringify(v.tags || []), now, now]);
 }
 
 admin.get('/questions', wrap(async (req, res) => {
-  const rows = await all('SELECT id, group_key, type, text, image IS NOT NULL AS has_image, options, difficulty, points FROM questions ORDER BY group_key, id');
+  const rows = await all('SELECT id, group_key, type, text, image IS NOT NULL AS has_image, options, difficulty, points, tags FROM questions ORDER BY group_key, id');
   res.json(rows.map(r => {
     const opts = J(r.options, []);
-    return { id: r.id, group_key: r.group_key, type: r.type, text: r.text, hasImage: !!Number(r.has_image) || opts.some(o => o.image), difficulty: Number(r.difficulty), points: Number(r.points), optionCount: opts.length };
+    return { id: r.id, group_key: r.group_key, type: r.type, text: r.text, hasImage: !!Number(r.has_image) || opts.some(o => o.image), difficulty: Number(r.difficulty), points: Number(r.points), optionCount: opts.length, tags: J(r.tags, []) };
   }));
 }));
 admin.get('/questions/:id', wrap(async (req, res) => {
@@ -443,7 +450,7 @@ admin.get('/questions/:id', wrap(async (req, res) => {
   res.json(parseQ(r));
 }));
 admin.post('/questions', wrap(async (req, res) => {
-  const v = questionInput(req.body, await groups());
+  const v = questionInput(req.body, await groups(), await courses());
   if (v.error) return bad(res, 'invalid', { message: v.error });
   const id = await nextQuestionId(v.group_key);
   await upsertQuestion(id, v);
@@ -451,7 +458,7 @@ admin.post('/questions', wrap(async (req, res) => {
 }));
 admin.put('/questions/:id', wrap(async (req, res) => {
   if (!await one('SELECT 1 FROM questions WHERE id = ?', [req.params.id])) return bad(res, 'not_found', {}, 404);
-  const v = questionInput(req.body, await groups());
+  const v = questionInput(req.body, await groups(), await courses());
   if (v.error) return bad(res, 'invalid', { message: v.error });
   await upsertQuestion(req.params.id, v);
   res.json({ id: req.params.id });
@@ -498,6 +505,18 @@ function letterIndex(v) {
   if (/^[A-Ja-j]$/.test(t)) return t.toUpperCase().charCodeAt(0) - 65;
   return NaN;
 }
+function resolveTags(raw, cs, unknownTags) {
+  const v = raw.tags ?? raw.courses ?? raw.course ?? raw.subjects ?? raw.courseTags ?? [];
+  const list = Array.isArray(v) ? v : String(v).split(/[,;|]/);
+  const out = [];
+  for (const t of list) {
+    const s = squash(typeof t === 'object' && t ? t.tag ?? t.code ?? t.name : t);
+    if (!s) continue;
+    const c = cs.find(c => squash(c.tag) === s || squash(c.code) === s || squash(c.name) === s);
+    if (c) out.push(c.tag); else unknownTags.add(String(typeof t === 'object' ? t.tag ?? t.code ?? t.name : t).trim());
+  }
+  return out;
+}
 function normalizeImported(raw, gs, map) {
   const gv = rawGroupValue(raw), group_key = resolveGroup(gv, gs, map);
   const list = raw.options ?? raw.choices ?? raw.answers ?? raw.choice ?? [];
@@ -526,9 +545,9 @@ admin.post('/questions/import', wrap(async (req, res) => {
   const list = Array.isArray(req.body.questions) ? req.body.questions : [];
   const dup = req.body.dup === 'overwrite' ? 'overwrite' : 'skip';
   const map = req.body.groupMap && typeof req.body.groupMap === 'object' ? req.body.groupMap : null;
-  const gs = await groups(), existing = new Set((await all('SELECT id FROM questions')).map(r => r.id));
-  const out = { total: list.length, added: 0, duplicate: 0, overwritten: 0, skipped: [], unknownGroups: [] };
-  const unknown = new Map(), todo = [];
+  const gs = await groups(), cs = await courses(), existing = new Set((await all('SELECT id FROM questions')).map(r => r.id));
+  const out = { total: list.length, added: 0, duplicate: 0, overwritten: 0, skipped: [], unknownGroups: [], unknownTags: [] };
+  const unknown = new Map(), unknownTags = new Set(), todo = [];
   list.forEach((raw, i) => {
     if (!raw || typeof raw !== 'object') return out.skipped.push({ id: 'ข้อที่ ' + (i + 1), reason: 'รูปแบบข้อมูลไม่ถูกต้อง' });
     const { groupValue, input } = normalizeImported(raw, gs, map);
@@ -538,12 +557,13 @@ admin.post('/questions/import', wrap(async (req, res) => {
       const chosenSkip = map && groupValue in map;
       return out.skipped.push({ id: id || 'ข้อที่ ' + (i + 1), reason: chosenSkip ? 'กลุ่ม “' + groupValue + '” เลือกไม่นำเข้า' : groupValue ? 'กลุ่มวิชา “' + groupValue + '” ไม่ตรงกับกลุ่มในระบบ' : 'ไม่มีกลุ่มวิชา' });
     }
-    const v = questionInput(input, gs);
+    const v = questionInput({ ...input, tags: resolveTags(raw, cs, unknownTags) }, gs, cs);
     if (v.error) return out.skipped.push({ id: id || 'ข้อที่ ' + (i + 1), reason: v.error });
     if (id && existing.has(id)) { out.duplicate++; if (dup === 'overwrite') { out.overwritten++; todo.push([id, v]); } return; }
     out.added++; todo.push([id, v]);
   });
   out.unknownGroups = [...unknown].map(([value, count]) => ({ value, count }));
+  out.unknownTags = [...unknownTags];
   if (!req.body.dryRun) for (const [id, v] of todo) { const nid = id || await nextQuestionId(v.group_key); existing.add(nid); await upsertQuestion(nid, v); }
   res.json(out);
 }));

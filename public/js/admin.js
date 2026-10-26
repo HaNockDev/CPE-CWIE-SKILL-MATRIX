@@ -9,6 +9,9 @@ const bFill = 'height:44px;padding:0 18px;border:none;border-radius:12px;backgro
 const bGhost = (c = 'var(--ink)') => `height:44px;padding:0 12px;border:none;border-radius:8px;background:transparent;color:${c};font-size:14px;font-weight:600;cursor:pointer`;
 const cardS = 'background:var(--surface);border:none;border-radius:20px;box-shadow:var(--shadow)';
 const sel = on => ({ border: on ? 'var(--primary)' : 'var(--line)', bg: on ? 'var(--primary-soft)' : 'var(--surface)' });
+const courseTip = c => c.code + ' ' + c.name;
+// small read-only course tag; hover/focus shows code + full name
+const TagChip = ({ c }) => html`<span class="tip" tabindex="0" data-tip=${courseTip(c)} aria-label=${c.tag + ' ' + courseTip(c)} style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:600;white-space:nowrap">${c.tag}</span>`;
 
 let TOKEN = store.get(TOKEN_KEY), onUnauthorized = () => {};
 const call = (path, opts = {}) => api('/admin' + path, { ...opts, token: TOKEN }).catch(e => { if (e.status === 401) onUnauthorized(); throw e; });
@@ -287,10 +290,12 @@ function ImportRoster({ ctx, round, onClose }) {
 // ================= A2 Bank =================
 function BankTab({ ctx }) {
   const { meta, bank } = ctx;
-  const [g, setG] = useState('all'), [t, setT] = useState('all'), [q, setQ] = useState('');
+  const [g, setG] = useState('all'), [t, setT] = useState('all'), [q, setQ] = useState(''), [tag, setTag] = useState('all');
+  const courseBy = Object.fromEntries((meta.courses || []).map(c => [c.tag, c]));
   const gName = k => (meta.groups.find(x => x.key === k) || {}).name || k;
   const qq = q.trim().toLowerCase();
-  const rows = (bank || []).filter(b => (g === 'all' || b.group_key === g) && (t === 'all' || b.type === t) && (!qq || b.text.toLowerCase().includes(qq) || b.id.toLowerCase().includes(qq)));
+  const tagHit = b => (b.tags || []).some(x => x.includes(qq) || (courseBy[x] && courseBy[x].code.toLowerCase().includes(qq)));
+  const rows = (bank || []).filter(b => (g === 'all' || b.group_key === g) && (t === 'all' || b.type === t) && (tag === 'all' || (tag === 'none' ? !(b.tags || []).length : (b.tags || []).includes(tag))) && (!qq || b.text.toLowerCase().includes(qq) || b.id.toLowerCase().includes(qq) || tagHit(b)));
   ctx.bankFiltered = rows;
   const total = meta.groups.reduce((a, x) => a + x.bank, 0);
   const chip = on => ({ border: on ? 'var(--primary)' : 'transparent', bg: on ? 'var(--primary)' : 'var(--fill)', ink: on ? 'var(--primary-ink)' : 'var(--ink)', countBg: on ? 'rgba(255,255,255,.22)' : 'var(--surface-2)' });
@@ -308,22 +313,27 @@ function BankTab({ ctx }) {
     <div style=${cardS + ';overflow:hidden'}>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)">
         <label style="flex:1;min-width:240px;max-width:420px;position:relative;display:flex;align-items:center">${Icon.search()}
-          <input aria-label="ค้นหาโจทย์หรือรหัสข้อ" placeholder="ค้นหาโจทย์หรือรหัสข้อ" value=${q} onInput=${e => setQ(e.target.value)} style=${inp + ';width:100%;padding-left:38px'} /></label>
+          <input aria-label="ค้นหาโจทย์หรือรหัสข้อ" placeholder="ค้นหาโจทย์ รหัสข้อ หรือรายวิชา" value=${q} onInput=${e => setQ(e.target.value)} style=${inp + ';width:100%;padding-left:38px'} /></label>
         <div role="radiogroup" aria-label="ประเภท" style="display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--fill)">
           ${[['all', 'ทุกประเภท'], ['single', 'ข้อเดียว'], ['multi', 'หลายข้อ']].map(([k, l]) => html`<button role="radio" aria-checked=${t === k} onClick=${() => setT(k)} style=${`height:38px;padding:0 14px;border:none;border-radius:8px;background:${t === k ? 'var(--surface)' : 'transparent'};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;box-shadow:${t === k ? '0 1px 3px rgba(0,0,0,.14)' : 'none'}`}>${l}</button>`)}
         </div>
+        <select aria-label="กรองตามรายวิชา" value=${tag} onChange=${e => setTag(e.target.value)} style=${inp + ';height:42px;max-width:280px'}>
+          <option value="all">ทุกรายวิชา</option><option value="none">ยังไม่ติด tag</option>
+          ${(meta.courses || []).map(c => html`<option value=${c.tag}>${c.tag} · ${c.code}</option>`)}
+        </select>
         <span style="margin-left:auto;color:var(--ink-3);font-size:14px">พบ ${rows.length} ข้อ</span>
       </div>
       ${!bank && html`<div style="padding:40px;text-align:center;color:var(--ink-2)">กำลังโหลดข้อมูล…</div>`}
-      ${bank && rows.length > 0 && html`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:860px">
+      ${bank && rows.length > 0 && html`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:1040px">
         <thead><tr style="background:var(--surface-2);color:var(--ink-2);text-align:left">
-          <th style="padding:10px 16px;font-weight:600;width:110px">รหัส</th><th style="padding:10px 8px;font-weight:600;width:170px">กลุ่มวิชา</th><th style="padding:10px 8px;font-weight:600;width:110px">ประเภท</th><th style="padding:10px 8px;font-weight:600">โจทย์</th><th style="padding:10px 8px;font-weight:600;width:56px;text-align:center">รูป</th><th style="padding:10px 8px;font-weight:600;width:90px">ความยาก</th><th style="padding:10px 16px;font-weight:600;width:230px;text-align:right">จัดการ</th>
+          <th style="padding:10px 16px;font-weight:600;width:110px">รหัส</th><th style="padding:10px 8px;font-weight:600;width:170px">กลุ่มวิชา</th><th style="padding:10px 8px;font-weight:600;width:110px">ประเภท</th><th style="padding:10px 8px;font-weight:600">โจทย์</th><th style="padding:10px 8px;font-weight:600;width:190px">รายวิชา</th><th style="padding:10px 8px;font-weight:600;width:56px;text-align:center">รูป</th><th style="padding:10px 8px;font-weight:600;width:90px">ความยาก</th><th style="padding:10px 16px;font-weight:600;width:230px;text-align:right">จัดการ</th>
         </tr></thead>
         <tbody>${rows.map(b => html`<tr key=${b.id} style="border-top:1px solid var(--line)">
           <td style=${'padding:10px 16px;font-size:13px;color:var(--ink-2);' + MONO}>${b.id}</td>
           <td style="padding:10px 8px">${gName(b.group_key)}</td>
           <td style="padding:10px 8px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink-2)"><span style=${`width:12px;height:12px;border:2px solid currentColor;border-radius:${b.type === 'multi' ? '3px' : '50%'}`}></span>${b.type === 'multi' ? 'หลายข้อ' : 'ข้อเดียว'}</span></td>
           <td style="padding:10px 8px;max-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.7" title=${b.text}>${b.text.replace(/\n+/g, ' ')}</div></td>
+          <td style="padding:8px"><div style="display:flex;gap:4px;flex-wrap:wrap">${(b.tags || []).map(x => courseBy[x] && html`<${TagChip} c=${courseBy[x]} />`)}${!(b.tags || []).length && html`<span style="color:var(--ink-3)">—</span>`}</div></td>
           <td style="padding:10px 8px;text-align:center">${b.hasImage && Icon.image()}</td>
           <td style="padding:10px 8px">${DIFF[b.difficulty]}</td>
           <td style="padding:6px 12px;text-align:right;white-space:nowrap">
@@ -342,7 +352,7 @@ function BankTab({ ctx }) {
 
 function Editor({ ctx, id, onClose }) {
   const { meta } = ctx;
-  const [ed, setEd] = useState(id ? null : { group_key: meta.groups[0]?.key, difficulty: 1, points: 1, text: '', image: null, imageLabel: '', explain: '', options: [0, 1, 2, 3].map(() => ({ text: '', image: null, correct: false })) });
+  const [ed, setEd] = useState(id ? null : { group_key: meta.groups[0]?.key, difficulty: 1, points: 1, text: '', image: null, imageLabel: '', explain: '', tags: [], options: [0, 1, 2, 3].map(() => ({ text: '', image: null, correct: false })) });
   const [busy, setBusy] = useState(false), [err, setErr] = useState('');
   useEffect(() => { if (id) call('/questions/' + id).then(q => setEd({ ...q, imageLabel: q.image ? 'รูปประกอบโจทย์' : '' })).catch(e => setErr(e.message)); }, []);
   if (!ed) return html`<${Modal} onClose=${onClose} label="กำลังโหลด" style="position:relative;background:var(--surface);border-radius:22px;padding:32px;color:var(--ink-2)">${err || 'กำลังโหลด…'}<//>`;
@@ -354,7 +364,7 @@ function Editor({ ctx, id, onClose }) {
   const addImage = async apply => { const f = await pickFile('image/png,image/jpeg,image/webp,image/gif'); if (!f) return; try { apply(await fileToDataUrl(f)); } catch (e) { ctx.toast(e.message, 'error'); } };
   const save = async () => {
     if (invalid) return; setBusy(true); setErr('');
-    const body = { group_key: ed.group_key, difficulty: ed.difficulty, points: ed.points, text: ed.text, image: ed.image, explain: ed.explain, options: ed.options, type: multi ? 'multi' : 'single' };
+    const body = { group_key: ed.group_key, difficulty: ed.difficulty, points: ed.points, text: ed.text, image: ed.image, explain: ed.explain, options: ed.options, tags: ed.tags || [], type: multi ? 'multi' : 'single' };
     try { await call(id ? '/questions/' + id : '/questions', { method: id ? 'PUT' : 'POST', body }); ctx.toast('บันทึกข้อสอบแล้ว'); ctx.reloadBank(); onClose(); } catch (e) { setErr(e.message); }
     setBusy(false);
   };
@@ -368,6 +378,13 @@ function Editor({ ctx, id, onClose }) {
           <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">กลุ่มวิชา</span><select value=${ed.group_key} onChange=${e => upd({ group_key: e.target.value })} style=${inp + ';padding:0 10px'}>${meta.groups.map(g => html`<option value=${g.key}>${g.name}</option>`)}</select></label>
           <div style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">ระดับความยาก</span><div role="radiogroup" aria-label="ระดับความยาก" style="display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--fill)">${DIFF.map((l, i) => html`<button role="radio" aria-checked=${ed.difficulty === i} onClick=${() => upd({ difficulty: i })} style=${`flex:1;height:38px;border:none;border-radius:8px;background:${ed.difficulty === i ? 'var(--surface)' : 'transparent'};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;box-shadow:${ed.difficulty === i ? '0 1px 3px rgba(0,0,0,.14)' : 'none'}`}>${l}</button>`)}</div></div>
           <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">คะแนน</span><input type="number" min="1" value=${ed.points} onInput=${e => upd({ points: Math.max(1, +e.target.value || 1) })} style=${inp + ';padding:0 10px;text-align:right;width:100%'} /></label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-weight:600">รายวิชาที่เกี่ยวข้อง <span style="font-weight:400;color:var(--ink-3)">(tag)</span></span><span style="font-size:13px;color:var(--ink-3)">กดเพื่อเลือก · ชี้ดูชื่อเต็ม · เลือกได้หลายวิชา</span></div>
+          <div role="group" aria-label="รายวิชาที่เกี่ยวข้อง" style="display:flex;gap:6px;flex-wrap:wrap">
+            ${(meta.courses || []).map(c => { const on = (ed.tags || []).includes(c.tag); return html`<button role="checkbox" aria-checked=${on} aria-label=${c.tag + ' ' + courseTip(c)} data-tip=${courseTip(c)} class="tip" onClick=${() => upd({ tags: on ? ed.tags.filter(x => x !== c.tag) : (ed.tags || []).concat(c.tag) })}
+              style=${`height:36px;padding:0 12px;border-radius:999px;border:1.5px solid ${on ? 'var(--primary)' : 'var(--line-strong)'};background:${on ? 'var(--primary)' : 'var(--surface)'};color:${on ? 'var(--primary-ink)' : 'var(--ink)'};font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px`}>${on && Icon.check(13, 3)}${c.tag}</button>`; })}
+          </div>
         </div>
         <label style="display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">โจทย์</span><textarea rows="4" value=${ed.text} onInput=${e => upd({ text: e.target.value })} style="padding:10px 12px;border-radius:12px;border:1.5px solid transparent;background:var(--fill);color:var(--ink);font-size:16px;line-height:1.7;resize:vertical"></textarea></label>
         <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1.5px dashed var(--line-strong);border-radius:10px">
@@ -459,6 +476,7 @@ function QImport({ ctx, onClose }) {
       ${check.duplicate > 0 && html`<span style="color:var(--ink-2)">รหัสซ้ำ ${check.duplicate} ข้อ: ${dup === 'skip' ? 'ข้าม เก็บของเดิมไว้' : 'เขียนทับด้วยข้อมูลจากไฟล์'}</span>`}
       ${check.skipped.slice(0, 8).map(s => html`<span style="color:var(--warn);font-weight:600">⚠ ข้าม: ${s.id} ${s.reason}</span>`)}
       ${check.skipped.length > 8 && html`<span style="color:var(--warn)">และอีก ${check.skipped.length - 8} ข้อ</span>`}
+      ${check.unknownTags && check.unknownTags.length > 0 && html`<span style="color:var(--ink-2)">tag รายวิชาที่ไม่รู้จัก (จะไม่ถูกติด): ${check.unknownTags.join(', ')}</span>`}
     </div>`}
     ${err && html`<div role="alert" style="color:var(--danger);font-weight:600">${err}</div>`}
     <span style="font-size:13px;color:var(--ink-3)">รองรับไฟล์ที่ส่งออกจากระบบนี้และจากคลังข้อสอบเดิม (exam-bank) · กลุ่มที่ระบบไม่รู้จักจะให้เลือกจับคู่ก่อนนำเข้า</span>
@@ -480,8 +498,8 @@ function QExport({ ctx, onClose }) {
       if (fmt < 2) downloadBlob('question-bank-' + stamp + '.json', new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
       else {
         const max = Math.max(2, ...data.questions.map(q => q.options.length));
-        const head = ['id', 'group', 'type', 'difficulty', 'points', 'text', 'correct'].concat(Array.from({ length: max }, (_, i) => 'option_' + LETTERS[i]));
-        downloadBlob('question-bank-' + stamp + '.csv', csvBlob([head].concat(data.questions.map(q => [q.id, gName(q.group_key), q.type, DIFF[q.difficulty], q.points, q.text, q.options.map((o, i) => o.correct ? LETTERS[i] : '').join('')].concat(q.options.map(o => o.text))))));
+        const head = ['id', 'group', 'type', 'difficulty', 'points', 'tags', 'text', 'correct'].concat(Array.from({ length: max }, (_, i) => 'option_' + LETTERS[i]));
+        downloadBlob('question-bank-' + stamp + '.csv', csvBlob([head].concat(data.questions.map(q => [q.id, gName(q.group_key), q.type, DIFF[q.difficulty], q.points, (q.tags || []).join(' '), q.text, q.options.map((o, i) => o.correct ? LETTERS[i] : '').join('')].concat(q.options.map(o => o.text))))));
       }
       ctx.toast('ดาวน์โหลดไฟล์แล้ว'); onClose();
     } catch (e) { ctx.toast(e.message, 'error'); }
