@@ -21,5 +21,8 @@
   },
   "buildCommand": "echo \"no build step\"",
   "outputDirectory": "public",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "regions": [
+    "sin1"
+  ]
 }

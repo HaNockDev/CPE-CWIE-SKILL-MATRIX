@@ -689,14 +689,36 @@ admin.get('/results/:rid/:sid', wrap(async (req, res) => {
 admin.post('/rounds/:id/publish', wrap(async (req, res) => {
   const round = await getRound(req.params.id);
   if (!round) return bad(res, 'not_found', {}, 404);
-  const atts = (await all("SELECT * FROM attempts WHERE round_id = ? AND status != 'not_started'", [round.id])).map(parseAttempt);
-  let scored = 0;
+  // Whole round in a fixed number of round trips (read everything, score in memory, write in batches):
+  // per-student queries take minutes on a remote database and hit the serverless time limit.
+  const now = Date.now();
+  const [gs, atts, prev] = await Promise.all([
+    groups(),
+    all("SELECT * FROM attempts WHERE round_id = ? AND status != 'not_started'", [round.id]).then(r => r.map(parseAttempt)),
+    all('SELECT sid, ref FROM results WHERE round_id = ?', [round.id])
+  ]);
+  const refs = Object.fromEntries(prev.map(r => [r.sid, r.ref]));
+  const done = [], stmts = [];
   for (const a of atts) {
-    const cur = await enforceDeadline(round, a);
-    if (cur.status === 'submitted') { await scoreAndStore(round, cur); scored++; }
+    if (a.status === 'submitted') done.push(a);
+    else if (a.status === 'in_progress' && now > a.deadline_at + GRACE_MS) { // time ran out: submit with saved answers
+      stmts.push({ sql: "UPDATE attempts SET status = 'submitted', submitted_at = ?, auto_reason = 'time' WHERE round_id = ? AND sid = ? AND status = 'in_progress'", args: [a.deadline_at, round.id, a.sid] });
+      done.push(a);
+    }
   }
-  await run('UPDATE rounds SET published = 1, published_at = ? WHERE id = ?', [Date.now(), round.id]);
-  res.json({ scored });
+  const ids = [...new Set(done.flatMap(a => a.question_ids))], qs = {};
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+  for (const part of await Promise.all(chunks.map(c => questionsByIds(c)))) Object.assign(qs, part);
+  for (const a of done) {
+    const sc = scoreAttempt(a, qs, gs);
+    stmts.push({ sql: `INSERT INTO results (round_id, sid, ref, groups, correct, total, pct, scored_at) VALUES (?,?,?,?,?,?,?,?)
+      ON CONFLICT(round_id, sid) DO UPDATE SET groups = excluded.groups, correct = excluded.correct, total = excluded.total, pct = excluded.pct, scored_at = excluded.scored_at`,
+    args: [round.id, a.sid, refs[a.sid] || newRef(round.id), JSON.stringify(sc.groups), sc.correct, sc.total, sc.pct, now] });
+  }
+  stmts.push({ sql: 'UPDATE rounds SET published = 1, published_at = ? WHERE id = ?', args: [now, round.id] });
+  await db.batch(stmts, 'write'); // one transaction: either the whole round is published or nothing changes
+  res.json({ scored: done.length });
 }));
 admin.get('/ref/:ref', wrap(async (req, res) => {
   const r = await one('SELECT * FROM results WHERE ref = ?', [String(req.params.ref).trim().toUpperCase()]);
