@@ -26,7 +26,35 @@ a{color:var(--primary)}a:hover{color:var(--primary-hover)}
 tr.h-row:hover{background:var(--primary-soft)!important}
 input::placeholder,textarea::placeholder{color:var(--ink-3)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media print{#app{position:static;height:auto;overflow:visible}}
+/* print / PDF: one flowing A4 document, no app chrome, colors kept, cards never split */
+@media print{
+  @page{size:A4;margin:12mm 11mm}
+  html,body{background:#fff!important;height:auto}
+  #app,.admin-root,.admin-scroll{position:static!important;display:block!important;height:auto!important;overflow:visible!important}
+  .admin-main{padding:0!important;max-width:none!important;gap:10px!important}
+  .no-print,details.tbl,.tip::after{display:none!important}
+  .print-only{display:block!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:none!important}
+  .dash{gap:10px!important}
+  .dash section{break-inside:avoid;border:1px solid #d9dfe8!important;padding:12px 14px!important}
+  .dash-grid{grid-template-columns:1fr 1fr!important;gap:10px!important}
+  .dash table tr{break-inside:avoid}
+  .dash thead{display:table-header-group}
+  .pr-wrap{white-space:normal!important;overflow:visible!important}
+  .dash .q-cell{max-width:none!important}
+  .item-table{table-layout:fixed}
+  .item-table th{white-space:normal!important}
+  .item-table th:nth-child(1){width:18%!important}.item-table th:nth-child(2){width:38%!important}.item-table th:nth-child(3){width:7%!important}
+  .item-table th:nth-child(4){width:9%!important}.item-table th:nth-child(5){width:10%!important}.item-table th:nth-child(6){width:18%!important}
+  .item-table .q-cell{overflow-wrap:anywhere}
+  .item-table .mark{display:none!important}
+  .dash [style*="overflow-x:auto"]{overflow:visible!important}
+  .dash table{min-width:0!important}
+  .dash section.allow-break{break-inside:auto;break-before:page}
+  .dash .print-wide{grid-column:1 / -1}
+  .dash .tiles{grid-template-columns:repeat(3,1fr)!important;gap:8px!important}
+  .dash .tile{border:1px solid #d9dfe8!important;padding:10px 12px!important;break-inside:avoid}
+}
 /* tooltip: <span class="tip" data-tip="…"> — shows on hover and keyboard focus */
 .tip{position:relative}
 .tip::after{content:attr(data-tip);display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:6px 10px;border-radius:8px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;line-height:1.5;white-space:normal;text-align:left;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .12s .25s;z-index:70}

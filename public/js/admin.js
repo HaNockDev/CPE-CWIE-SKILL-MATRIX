@@ -1,5 +1,5 @@
 import { html, render, useState, useEffect, useRef, useMemo } from '../vendor/preact-htm.js';
-import { api, store, thDate, thTime, thDateTime, toLocalInput, Icon, LogoBox, Toast, SpiderChart, trapFocus, ThemeButton, downloadBlob, UNI, LETTERS, MONO } from './common.js';
+import { api, store, applyTheme, thDate, thTime, thDateTime, toLocalInput, Icon, LogoBox, Toast, SpiderChart, trapFocus, ThemeButton, downloadBlob, UNI, LETTERS, MONO } from './common.js';
 
 const TOKEN_KEY = 'psru-admin-token';
 const DIFF = ['ง่าย', 'ปานกลาง', 'ยาก'];
@@ -636,7 +636,7 @@ function ResultsTab({ ctx }) {
     <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);font-weight:600"><span style=${`width:8px;height:8px;border-radius:50%;background:${dot}`}></span>${label}</span><span style="font-size:22px;font-weight:700">${value}</span></button>`;
   const td = 'padding:10px;border-bottom:1px solid var(--line)';
   return html`
-    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+    <div class="no-print" style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
       <div style="flex:1;min-width:240px"><h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.45">ผลสอบ</h1><span style="color:var(--ink-2)">${r ? all.length + ' คน · ออกนอกหน้าจอได้ ' + max + ' ครั้ง' : 'กำลังโหลด…'}</span></div>
       <div role="radiogroup" aria-label="มุมมอง" style="display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--fill)">
         ${[['overview', 'ภาพรวม'], ['people', 'รายคน'], ['courses', 'รายวิชา (tag)']].map(([k, l]) => html`<button role="radio" aria-checked=${view === k} onClick=${() => setView(k)} style=${`height:40px;padding:0 16px;border:none;border-radius:8px;background:${view === k ? 'var(--surface)' : 'transparent'};color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;box-shadow:${view === k ? '0 1px 3px rgba(0,0,0,.14)' : 'none'}`}>${l}</button>`)}
@@ -686,12 +686,12 @@ function ResultsTab({ ctx }) {
 const FLAG = { hard: ['ยากเกินไป', 'ตอบถูกไม่ถึง 20%'], easy: ['ง่ายเกินไป', 'ตอบถูกเกิน 90%'], negative: ['จำแนกกลับด้าน', 'D ≤ −0.1: คนคะแนนรวมสูงตอบถูกน้อยกว่าคนคะแนนต่ำ — ตรวจเฉลยหรือโจทย์กำกวม'], lowd: ['จำแนกต่ำ', 'แยกคนเก่ง/อ่อนได้น้อย (D < 0.2)'] };
 const LV = [1, 2, 3, 4, 5];
 const pctS = x => x == null ? '—' : x.toFixed(1) + '%';
-const Card = ({ title, sub, children, wide }) => html`<section style=${cardS + ';padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0' + (wide ? ';grid-column:1 / -1' : '')}>
+const Card = ({ title, sub, children, wide, cls }) => html`<section class=${cls} style=${cardS + ';padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0' + (wide ? ';grid-column:1 / -1' : '')}>
   <div style="display:flex;flex-direction:column;line-height:1.45"><h2 style="margin:0;font-size:16px;font-weight:700">${title}</h2>${sub && html`<span style="font-size:13px;color:var(--ink-2)">${sub}</span>`}</div>${children}</section>`;
 const TableView = ({ head, rows }) => html`<details class="tbl"><summary>ดูเป็นตาราง</summary><table><thead><tr>${head.map(h => html`<th>${h}</th>`)}</tr></thead><tbody>${rows.map(r => html`<tr>${r.map(c => html`<td>${c}</td>`)}</tr>`)}</tbody></table></details>`;
 
 function Tile({ label, value, sub, warn }) {
-  return html`<div style=${cardS + ';padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0'}>
+  return html`<div class="tile" style=${cardS + ';padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0'}>
     <span style="font-size:13px;color:var(--ink-2);font-weight:600">${label}</span>
     <span style="font-size:26px;font-weight:700;line-height:1.3">${value}</span>
     ${sub && html`<span style=${`font-size:13px;color:${warn ? 'var(--warn)' : 'var(--ink-3)'};display:flex;gap:4px;align-items:center`}>${warn && Icon.warn(14)}${sub}</span>`}
@@ -741,22 +741,42 @@ function Insights({ d, groupName }) {
 }
 
 function Dashboard({ ctx, rid, onCourses }) {
-  const [d, setD] = useState(null), [err, setErr] = useState(''), [all, setAll] = useState(false);
+  const [d, setD] = useState(null), [err, setErr] = useState(''), [all, setAll] = useState(false), [printing, setPrinting] = useState(false);
+  // PDF = the browser's print dialog with a print layout (keeps Thai shaping and vector charts exact)
+  useEffect(() => {
+    if (!printing) return;
+    const prevTitle = document.title, prevTheme = document.documentElement.getAttribute('data-theme');
+    const done = () => { document.title = prevTitle; applyTheme(store.get('psru-theme')); if (prevTheme) document.documentElement.setAttribute('data-theme', prevTheme); setPrinting(false); };
+    document.title = 'dashboard-' + rid + '-' + new Date().toISOString().slice(0, 10); // default PDF file name
+    document.documentElement.setAttribute('data-theme', 'light'); // reports are always printed light
+    addEventListener('afterprint', done, { once: true });
+    const t = setTimeout(() => window.print(), 300); // let the full item list render first
+    return () => { clearTimeout(t); removeEventListener('afterprint', done); };
+  }, [printing]);
   useEffect(() => { setD(null); setErr(''); call('/dashboard/' + rid).then(setD).catch(e => setErr(e.message)); }, [rid]);
   if (err) return html`<div style=${cardS + ';padding:40px;text-align:center;color:var(--danger)'}>${err}</div>`;
   if (!d) return html`<div style=${cardS + ';padding:40px;text-align:center;color:var(--ink-2)'}>กำลังวิเคราะห์…</div>`;
   const s = d.status, sc = d.score, it = d.integrity, meta = ctx.meta;
   const gName = k => (meta.groups.find(g => g.key === k) || {}).short || k;
   if (!s.roster) return html`<div style=${cardS + ';padding:40px;text-align:center;color:var(--ink-2)'}>ยังไม่มีรายชื่อผู้สอบในรอบนี้</div>`;
-  const flagged = d.items.filter(i => i.flags.length), itemRows = all ? d.items : flagged.slice(0, 15);
+  const flagged = d.items.filter(i => i.flags.length), itemRows = all ? d.items : printing ? flagged : flagged.slice(0, 15);
   const statusSeg = [['ส่งแล้ว', s.submitted - s.autoTime - s.autoLeaves, 'var(--ok)'], ['ส่งอัตโนมัติ (หมดเวลา)', s.autoTime, 'var(--lv2)'], ['ส่งอัตโนมัติ (ออกนอกจอเกิน)', s.autoLeaves, 'var(--danger)'], ['กำลังสอบ', s.in_progress, 'var(--primary)'], ['ยังไม่เริ่ม', s.not_started, 'var(--line-strong)']].filter(x => x[1] > 0);
-  const histData = sc.hist.map((v, i) => ({ label: i * 10 + (i === 9 ? '–100' : '–' + (i * 10 + 9)), value: v, tip: `คะแนน ${i * 10}–${i === 9 ? 100 : i * 10 + 9}%: ${v} คน` }));
+  const histData = sc.hist.map((v, i) => ({ label: String(i * 10), range: i * 10 + '–' + (i === 9 ? 100 : i * 10 + 9), value: v, tip: `คะแนน ${i * 10}–${i === 9 ? 100 : i * 10 + 9}%: ${v} คน` }));
   const timeData = d.time.hist.map((v, i) => { const a = Math.round(i * d.time.step), b = Math.round((i + 1) * d.time.step); return { label: a + '–' + b, value: v, tip: `ใช้เวลา ${a}–${b} นาที: ${v} คน` }; });
   const leaveData = ['0', '1', '2', '3+'].map((l, i) => ({ label: l + ' ครั้ง', value: it.leaveHist[i], color: i === 0 ? 'var(--primary)' : i >= it.maxLeaves ? 'var(--danger)' : 'var(--avg)', tip: `ออกนอกจอ ${l} ครั้ง: ${it.leaveHist[i]} คน` }));
   const trend = d.trend.filter(t => t.n > 0);
-  return html`<div style="display:flex;flex-direction:column;gap:16px">
+  return html`<div class="dash" style="display:flex;flex-direction:column;gap:16px">
+    <div class="print-only" style="display:none;border-bottom:2px solid #2b59d9;padding-bottom:10px">
+      <div style="font-size:13px;color:#5f6b7f">${UNI.name} · ระบบสอบออนไลน์ ${UNI.short}</div>
+      <div style="font-size:22px;font-weight:700;line-height:1.4">รายงานภาพรวมการสอบ</div>
+      <div style="font-size:16px;font-weight:600">${d.round.name}</div>
+      <div style="font-size:13px;color:#465267">เปิดสอบ ${thDateTime(d.round.opensAt)} – ${thDateTime(d.round.closesAt)} · ทำข้อสอบ ${d.round.durationMin} นาที · ${d.round.published ? 'เผยแพร่ผลแล้ว' : 'ยังไม่เผยแพร่ผล'} · ออกรายงานเมื่อ ${thDateTime(Date.now())}</div>
+    </div>
+    <div class="no-print" style="display:flex;justify-content:flex-end;margin-bottom:-6px">
+      <button onClick=${() => setPrinting(true)} disabled=${printing} class="h-surface2 tip" data-tip="เปิดหน้าพิมพ์ แล้วเลือกปลายทาง “บันทึกเป็น PDF”" style=${bFill + ';height:40px;padding:0 14px;font-size:14px;display:flex;align-items:center;gap:6px'}>${Icon.download()}ส่งออก PDF</button>
+    </div>
     <${Insights} d=${d} />
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+    <div class="tiles" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
       <${Tile} label="ส่งข้อสอบแล้ว" value=${s.submitted + ' / ' + s.roster} sub=${Math.round(s.submitted / s.roster * 100) + '% ของรายชื่อ'} />
       <${Tile} label="คะแนนเฉลี่ย" value=${pctS(sc.mean)} sub=${sc.sd != null ? 'ส่วนเบี่ยงเบนมาตรฐาน ' + sc.sd.toFixed(1) : ''} />
       <${Tile} label="มัธยฐาน" value=${pctS(sc.median)} sub=${sc.n ? 'ต่ำสุด ' + pctS(sc.min) + ' · สูงสุด ' + pctS(sc.max) : ''} />
@@ -771,8 +791,8 @@ function Dashboard({ ctx, rid, onCourses }) {
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink-2)">${statusSeg.map(([l, v, c]) => html`<span style="display:flex;align-items:center;gap:6px"><span style=${`width:10px;height:10px;border-radius:3px;background:${c}`}></span>${l} <strong style="color:var(--ink)">${v}</strong></span>`)}</div>
       <//>
-      <${Card} title="การกระจายคะแนนรวม" sub=${sc.n ? 'จำนวนผู้สอบในแต่ละช่วงคะแนน (%) · ' + sc.n + ' คนที่ส่งแล้ว' : 'ยังไม่มีผู้ส่งข้อสอบ'}>
-        ${sc.n > 0 && html`<${Columns} data=${histData} label="ฮิสโตแกรมคะแนนรวม" /><${TableView} head=${['ช่วงคะแนน (%)', 'คน']} rows=${histData.map(x => [x.label, x.value])} />`}
+      <${Card} title="การกระจายคะแนนรวม" sub=${sc.n ? 'จำนวนผู้สอบในแต่ละช่วงคะแนน (แท่งละ 10%) · ' + sc.n + ' คนที่ส่งแล้ว' : 'ยังไม่มีผู้ส่งข้อสอบ'}>
+        ${sc.n > 0 && html`<${Columns} data=${histData} label="ฮิสโตแกรมคะแนนรวม" /><${TableView} head=${['ช่วงคะแนน (%)', 'คน']} rows=${histData.map(x => [x.range, x.value])} />`}
       <//>
       <${Card} title="ระดับรายกลุ่มวิชา" sub="จำนวนผู้สอบในแต่ละระดับ 1 (ต่ำ) – 5 (สูง) และคะแนนเฉลี่ยเต็ม 5" wide>
         ${d.groups.length ? html`
@@ -795,37 +815,37 @@ function Dashboard({ ctx, rid, onCourses }) {
           <span style="font-size:12px;color:var(--ink-3)">สีแดง = ถึงหรือเกินจำนวนที่อนุญาต (${it.maxLeaves} ครั้ง)</span>
           <${TableView} head=${['ออกนอกจอ', 'คน']} rows=${leaveData.map(x => [x.label, x.value])} />` : html`<span style="color:var(--ink-2)">ยังไม่มีผู้เริ่มสอบ</span>`}
       <//>
-      ${d.courses.rows.length > 0 && html`<${Card} title="รายวิชาที่ควรเสริม" sub="5 รายวิชาที่ตอบถูกน้อยที่สุด (จาก tag ของข้อสอบ)">
+      ${d.courses.rows.length > 0 && html`<${Card} cls="print-wide" title="รายวิชาที่ควรเสริม" sub="5 รายวิชาที่ตอบถูกน้อยที่สุด (จาก tag ของข้อสอบ)">
         <div style="display:flex;flex-direction:column;gap:8px">${d.courses.rows.slice().sort((a, b) => a.pct - b.pct).slice(0, 5).map(c => html`<div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 56px;gap:10px;align-items:center;font-size:14px">
           <span style="display:flex;gap:8px;align-items:center;min-width:0"><${TagChip} c=${c} /><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)">${c.name}</span></span>
           <span class="tip mark" tabindex="0" data-tip=${`${c.code}: ตอบถูก ${c.correct}/${c.items} (${c.pct.toFixed(1)}%)`} style="height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden;display:block"><span style=${`display:block;height:100%;width:${c.pct}%;background:${c.pct < 50 ? 'var(--avg)' : 'var(--primary)'};border-radius:0 4px 4px 0`}></span></span>
           <strong style="text-align:right">${c.pct.toFixed(0)}%</strong></div>`)}</div>
-        <button onClick=${onCourses} style=${bGhost('var(--primary)') + ';align-self:flex-start;height:36px;padding:0 8px'}>ดูรายงานรายวิชาทั้งหมด →</button>
+        <button onClick=${onCourses} class="no-print" style=${bGhost('var(--primary)') + ';align-self:flex-start;height:36px;padding:0 8px'}>ดูรายงานรายวิชาทั้งหมด →</button>
       <//>`}
       ${trend.length > 1 && html`<${Card} title="เทียบกับรอบอื่น" sub="คะแนนเฉลี่ย (%) ของแต่ละรอบที่มีผลสอบ">
         <${Columns} data=${trend.map(t => ({ label: t.name, value: t.mean, color: t.id === rid ? 'var(--primary)' : 'var(--lv2)', tip: `${t.name}: เฉลี่ย ${t.mean.toFixed(1)}% (${t.n} คน)` }))} unit="%" label="คะแนนเฉลี่ยแต่ละรอบ" />
         <${TableView} head=${['รอบ', 'ผู้สอบ', 'เฉลี่ย %']} rows=${trend.map(t => [t.name, t.n, t.mean.toFixed(1)])} />
       <//>`}
     </div>
-    <${Card} title="วิเคราะห์ข้อสอบรายข้อ" sub=${`ค่าความยาก p = สัดส่วนที่ตอบถูก · ค่าอำนาจจำแนก D = p กลุ่มสูง 27% − p กลุ่มต่ำ 27% (คำนวณเมื่อมีผู้ส่ง ≥ 10 คน)`} wide>
+    <${Card} cls="allow-break" title="วิเคราะห์ข้อสอบรายข้อ" sub=${`ค่าความยาก p = สัดส่วนที่ตอบถูก · ค่าอำนาจจำแนก D = p กลุ่มสูง 27% − p กลุ่มต่ำ 27% (คำนวณเมื่อมีผู้ส่ง ≥ 10 คน)`} wide>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px">
         ${Object.entries(FLAG).map(([k, [l, t]]) => html`<span class="tip" tabindex="0" data-tip=${t} style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;background:var(--surface-2);color:var(--ink-2)">${(k === 'negative' ? '⚠ ' : '') + l} <strong style="color:var(--ink)">${d.items.filter(i => i.flags.includes(k)).length}</strong></span>`)}
-        <button onClick=${() => setAll(!all)} style=${bGhost('var(--primary)') + ';height:32px;margin-left:auto'}>${all ? 'แสดงเฉพาะข้อที่ควรตรวจ' : 'แสดงทุกข้อ (' + d.items.length + ')'}</button>
-        <button onClick=${() => downloadBlob('item-analysis-' + rid + '.csv', csvBlob([['รหัสข้อ', 'กลุ่ม', 'tag', 'ผู้ตอบ', 'ค่าความยาก p', 'อำนาจจำแนก D', 'ข้อสังเกต', 'โจทย์']].concat(d.items.map(i => [i.id, gName(i.group), i.tags.join(' '), i.n, i.p.toFixed(2), i.d == null ? '' : i.d.toFixed(2), i.flags.map(f => FLAG[f][0]).join(', '), i.text]))))} style=${bGhost() + ';height:32px'}>ส่งออก CSV</button>
+        <button onClick=${() => setAll(!all)} class="no-print" style=${bGhost('var(--primary)') + ';height:32px;margin-left:auto'}>${all ? 'แสดงเฉพาะข้อที่ควรตรวจ' : 'แสดงทุกข้อ (' + d.items.length + ')'}</button>
+        <button onClick=${() => downloadBlob('item-analysis-' + rid + '.csv', csvBlob([['รหัสข้อ', 'กลุ่ม', 'tag', 'ผู้ตอบ', 'ค่าความยาก p', 'อำนาจจำแนก D', 'ข้อสังเกต', 'โจทย์']].concat(d.items.map(i => [i.id, gName(i.group), i.tags.join(' '), i.n, i.p.toFixed(2), i.d == null ? '' : i.d.toFixed(2), i.flags.map(f => FLAG[f][0]).join(', '), i.text]))))} class="no-print" style=${bGhost() + ';height:32px'}>ส่งออก CSV</button>
       </div>
-      ${itemRows.length ? html`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px;min-width:820px">
-        <thead><tr style="text-align:left;color:var(--ink-2);background:var(--surface-2)"><th style="padding:8px 10px;font-weight:600">ข้อ</th><th style="padding:8px;font-weight:600">โจทย์</th><th style="padding:8px;font-weight:600;text-align:right">ผู้ตอบ</th><th style="padding:8px;font-weight:600;width:170px">ความยาก p</th><th style="padding:8px;font-weight:600;text-align:right">อำนาจจำแนก D</th><th style="padding:8px;font-weight:600">ข้อสังเกต</th><th></th></tr></thead>
+      ${itemRows.length ? html`<div style="overflow-x:auto"><table class="item-table" style="width:100%;border-collapse:collapse;font-size:14px;min-width:820px">
+        <thead><tr style="text-align:left;color:var(--ink-2);background:var(--surface-2)"><th style="padding:8px 10px;font-weight:600">ข้อ</th><th style="padding:8px;font-weight:600">โจทย์</th><th style="padding:8px;font-weight:600;text-align:right;white-space:nowrap">ผู้ตอบ</th><th style="padding:8px;font-weight:600;width:170px;white-space:nowrap">ความยาก p</th><th style="padding:8px;font-weight:600;text-align:right;white-space:nowrap">อำนาจจำแนก D</th><th style="padding:8px;font-weight:600">ข้อสังเกต</th><th class="no-print"></th></tr></thead>
         <tbody>${itemRows.map(i => html`<tr style=${`border-top:1px solid var(--line);background:${i.flags.includes('negative') ? 'var(--warn-soft)' : 'transparent'}`}>
           <td style=${'padding:8px 10px;font-size:12px;white-space:nowrap;' + MONO}>${i.id}<div style="font-family:inherit;color:var(--ink-3)">${gName(i.group)}</div></td>
-          <td style="padding:8px;max-width:0;width:40%"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${i.text}>${i.text}</div></td>
+          <td class="q-cell" style="padding:8px;max-width:0;width:40%"><div class="pr-wrap" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=${i.text}>${i.text}</div></td>
           <td style=${'padding:8px;text-align:right;' + MONO}>${i.n}</td>
-          <td style="padding:8px"><div style="display:flex;align-items:center;gap:8px"><span class="tip mark" tabindex="0" data-tip=${`ตอบถูก ${Math.round(i.p * i.n)} จาก ${i.n} คน`} style="flex:1;height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;display:block"><span style=${`display:block;height:100%;width:${i.p * 100}%;background:var(--primary);border-radius:0 4px 4px 0`}></span></span><span style=${MONO + ';width:40px;text-align:right'}>${i.p.toFixed(2)}</span></div></td>
+          <td style="padding:8px"><div style="display:flex;align-items:center;gap:8px"><span class="tip mark" tabindex="0" data-tip=${`ตอบถูก ${Math.round(i.p * i.n)} จาก ${i.n} คน`} style="flex:1;min-width:56px;height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;display:block"><span style=${`display:block;height:100%;width:${i.p * 100}%;background:var(--primary);border-radius:0 4px 4px 0`}></span></span><span style=${MONO + ';width:40px;text-align:right'}>${i.p.toFixed(2)}</span></div></td>
           <td style=${'padding:8px;text-align:right;' + MONO + (i.d != null && i.d < 0 ? ';color:var(--danger);font-weight:700' : '')}>${i.d == null ? '—' : i.d.toFixed(2)}</td>
-          <td style="padding:8px;font-size:13px">${i.flags.map(f => html`<span class="tip" tabindex="0" data-tip=${FLAG[f][1]} style=${`display:inline-block;margin:0 4px 2px 0;padding:1px 8px;border-radius:999px;font-weight:600;background:${f === 'negative' ? 'var(--danger-soft)' : 'var(--warn-soft)'};color:${f === 'negative' ? 'var(--danger)' : 'var(--warn)'}`}>${(f === 'negative' ? '⚠ ' : '') + FLAG[f][0]}</span>`)}</td>
-          <td style="padding:6px 10px;text-align:right"><button onClick=${() => ctx.open({ kind: 'editor', id: i.id })} class="h-psoft" style=${bGhost('var(--primary)') + ';height:34px;padding:0 10px;font-size:13px'}>แก้ไข</button></td>
+          <td style="padding:8px;font-size:13px">${i.flags.map(f => html`<span class="tip" tabindex="0" data-tip=${FLAG[f][1]} style=${`display:inline-block;white-space:nowrap;margin:0 4px 2px 0;padding:1px 8px;border-radius:999px;font-weight:600;background:${f === 'negative' ? 'var(--danger-soft)' : 'var(--warn-soft)'};color:${f === 'negative' ? 'var(--danger)' : 'var(--warn)'}`}>${(f === 'negative' ? '⚠ ' : '') + FLAG[f][0]}</span>`)}</td>
+          <td class="no-print" style="padding:6px 10px;text-align:right"><button onClick=${() => ctx.open({ kind: 'editor', id: i.id })} class="h-psoft" style=${bGhost('var(--primary)') + ';height:34px;padding:0 10px;font-size:13px'}>แก้ไข</button></td>
         </tr>`)}</tbody></table></div>`
         : html`<div style="padding:20px;text-align:center;color:var(--ink-2)">${d.items.length ? '✓ ไม่พบข้อที่ควรตรวจ' : 'ยังไม่มีผู้ส่งข้อสอบ'}</div>`}
-      ${!all && flagged.length > 15 && html`<span style="font-size:13px;color:var(--ink-3)">แสดง 15 จาก ${flagged.length} ข้อที่ควรตรวจ</span>`}
+      ${!all && !printing && flagged.length > 15 && html`<span style="font-size:13px;color:var(--ink-3)">แสดง 15 จาก ${flagged.length} ข้อที่ควรตรวจ</span>`}
     <//>
     <span style="font-size:12px;color:var(--ink-3)">วิเคราะห์จากข้อมูลล่าสุดทุกครั้งที่เปิดหน้านี้ รวมผู้ที่ส่งแล้วแต่ยังไม่เผยแพร่ผล · คิดตามเฉลยปัจจุบันในคลังข้อสอบ</span>
   </div>`;
@@ -953,8 +973,8 @@ function App() {
   const close = () => setOv(null);
   const initials = name.replace(/^(อ\.|ดร\.|ผศ\.|รศ\.|ศ\.)\s*/, '').slice(0, 2);
 
-  return html`<div style="position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;font-size:15px">
-    <header class="blur-bar" style="flex:none;border-bottom:0.5px solid var(--line-strong)">
+  return html`<div class="admin-root" style="position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;font-size:15px">
+    <header class="blur-bar no-print" style="flex:none;border-bottom:0.5px solid var(--line-strong)">
       <div style="max-width:1360px;margin:0 auto;padding:8px 24px;display:flex;align-items:center;gap:16px 24px;min-height:64px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:10px;flex:none">
           <${LogoBox} size=${36} font=${10} />
@@ -970,9 +990,9 @@ function App() {
         </div>
       </div>
     </header>
-    <main style="flex:1;overflow-y:auto;overflow-x:hidden">
+    <main class="admin-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden">
       <div class="admin-main" style="max-width:1360px;margin:0 auto;padding:24px 24px 48px;display:flex;flex-direction:column;gap:20px">
-        ${meta && (meta.defaultPassword || meta.ephemeral) && html`<div role="note" style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--warn-soft);border:1px solid var(--warn-line);font-size:14px">${Icon.warn(20, 'var(--warn)')}<div style="display:flex;flex-direction:column">
+        ${meta && (meta.defaultPassword || meta.ephemeral) && html`<div role="note" class="no-print" style="display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--warn-soft);border:1px solid var(--warn-line);font-size:14px">${Icon.warn(20, 'var(--warn)')}<div style="display:flex;flex-direction:column">
           ${meta.defaultPassword && html`<span><strong>ยังใช้รหัสผ่านผู้ดูแลค่าเริ่มต้น</strong> ตั้งค่าตัวแปร ADMIN_PASSWORD และ APP_SECRET ก่อนใช้งานจริง</span>`}
           ${meta.ephemeral && html`<span><strong>ฐานข้อมูลชั่วคราว</strong> ข้อมูลจะหายเมื่อเซิร์ฟเวอร์รีสตาร์ต ตั้งค่า TURSO_DATABASE_URL (Vercel) หรือเปิด Persistent storage (Hugging Face)</span>`}
         </div></div>`}
