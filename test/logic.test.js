@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { score5, level, isCorrect, scoreAttempt, buildSet, newExamCode, newRef, courseBreakdown } from '../server/logic.js';
+import { score5, level, isCorrect, scoreAttempt, buildSet, newExamCode, newRef, courseBreakdown, roundInsights } from '../server/logic.js';
 
 test('score5 / level', () => {
   assert.equal(score5(9, 10), 4.5);
@@ -51,4 +51,27 @@ test('courseBreakdown counts each tag of a question, per answered item', () => {
   const r = courseBreakdown(atts, qs, [{ tag: 'algo', code: 'X1', name: 'A' }, { tag: 'db', code: 'X2', name: 'D' }, { tag: 'net', code: 'X3', name: 'N' }]);
   assert.equal(r.untagged, 1);
   assert.deepEqual(r.rows.map(x => [x.tag, x.questions, x.items, x.correct, x.students, x.pct]), [['algo', 1, 2, 1, 2, 50], ['db', 2, 4, 2, 2, 50]]);
+});
+
+test('roundInsights: scores, levels, item analysis and integrity', () => {
+  const ok = [{ correct: true }, { correct: false }];
+  const q = (g, extra = {}) => ({ group_key: g, text: 'q', options: ok, tags: [], ...extra });
+  const questionsById = { easy: q('sw'), hard: q('sw'), m1: q('sw'), m2: q('sw'), m3: q('sw'), flip: q('soft') };
+  const attempts = [];
+  // 20 students; total score rises with i. "flip" is answered right only by the 5 weakest -> negative discrimination
+  const right = c => [c ? 0 : 1];
+  for (let i = 0; i < 20; i++) {
+    attempts.push({ sid: 's' + i, status: 'submitted', question_ids: ['easy', 'hard', 'm1', 'm2', 'm3', 'flip'], started_at: 0, submitted_at: (10 + i) * 60e3,
+      answers: { easy: right(true), hard: right(i === 19), m1: right(i >= 5), m2: right(i >= 5), m3: right(i >= 15), flip: right(i < 5) }, auto_reason: i === 0 ? 'time' : '' });
+  }
+  attempts.push({ sid: 'x', status: 'in_progress', question_ids: [], answers: {}, deadline_at: Date.now() + 1e6 });
+  const r = roundInsights({ round: { durationMin: 60, maxLeaves: 3 }, roster: 25, attempts, events: [{ sid: 's1', kind: 'tab', duration_ms: 5000 }, { sid: 's1', kind: 'fullscreen', duration_ms: null }], questionsById, groups: [{ key: 'sw', name: 'SW', short: 'S' }, { key: 'soft', name: 'Soft', short: 'F' }] });
+  assert.deepEqual([r.status.submitted, r.status.in_progress, r.status.not_started, r.status.autoTime], [20, 1, 4, 1]);
+  assert.equal(r.score.n, 20);
+  const by = Object.fromEntries(r.items.map(x => [x.id, x]));
+  assert.deepEqual(by.easy.flags, ['easy']);
+  assert.ok(by.hard.flags.includes('hard'));
+  assert.ok(by.flip.flags.includes('negative'));
+  assert.equal(r.groups.find(g => g.key === 'sw').levels.reduce((a, b) => a + b, 0), 20);
+  assert.deepEqual([r.integrity.withLeave, r.integrity.leaveHist[2], r.integrity.tab, r.integrity.fullscreen, r.integrity.awayMs], [1, 1, 1, 1, 5000]);
 });

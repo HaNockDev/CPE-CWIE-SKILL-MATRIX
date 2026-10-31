@@ -29,5 +29,22 @@ input::placeholder,textarea::placeholder{color:var(--ink-3)}
 @media print{#app{position:static;height:auto;overflow:visible}}
 /* tooltip: <span class="tip" data-tip="…"> — shows on hover and keyboard focus */
 .tip{position:relative}
-.tip::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:6px 10px;border-radius:8px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;line-height:1.5;white-space:normal;text-align:left;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .12s .25s;z-index:70}
-.tip:hover::after,.tip:focus-visible::after{opacity:1}
+.tip::after{content:attr(data-tip);display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:6px 10px;border-radius:8px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;line-height:1.5;white-space:normal;text-align:left;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .12s .25s;z-index:70}
+.tip:hover::after,.tip:focus-visible::after{display:block;opacity:1}
+/* dashboard: sequential ramp for levels 1–5 (one hue, light -> dark; reversed lightness in dark mode) */
+:root,[data-theme="light"]{--lv1:#c3d3f7;--lv2:#8eabef;--lv3:#5a83e5;--lv4:#2b59d9;--lv5:#1a3c9c;--grid:#e6e6eb}
+[data-theme="dark"]{--lv1:#23345f;--lv2:#2f4f9a;--lv3:#4a72d6;--lv4:#6f95ff;--lv5:#a9c0ff;--grid:#2c2c2e}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--lv1:#23345f;--lv2:#2f4f9a;--lv3:#4a72d6;--lv4:#6f95ff;--lv5:#a9c0ff;--grid:#2c2c2e}}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+.mark{transition:filter .12s}
+.mark:hover,.mark:focus-visible{filter:brightness(1.12)}
+details.tbl>summary{cursor:pointer;font-size:13px;color:var(--ink-2);list-style:none;display:inline-flex;align-items:center;gap:4px;min-height:32px}
+details.tbl>summary::before{content:'▸';font-size:11px}
+details.tbl[open]>summary::before{content:'▾'}
+details.tbl table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+details.tbl th,details.tbl td{padding:4px 8px;border-top:1px solid var(--line);text-align:right}
+details.tbl th:first-child,details.tbl td:first-child{text-align:left}
+@media (max-width:640px){.admin-main{padding:16px 16px 40px!important}}
+.lv-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.lv-row>.lv-name{flex:0 0 170px;min-width:0}
+.lv-row>.lv-bar{flex:1 1 220px;min-width:0}

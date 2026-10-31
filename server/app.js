@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import { db, init, all, one, run, J, dbUrl, isEphemeral } from './db.js';
 import { sign, verify, requireRole, adminPassword, DEFAULT_ADMIN_PASSWORD } from './auth.js';
 import { sendMail } from './mailer.js';
-import { LEVEL_NAMES, newExamCode, newRef, buildSet, scoreAttempt, thDateTime, courseBreakdown } from './logic.js';
+import { LEVEL_NAMES, newExamCode, newRef, buildSet, scoreAttempt, thDateTime, courseBreakdown, roundInsights } from './logic.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GRACE_MS = 15_000; // late answers tolerated for network latency
@@ -674,6 +674,28 @@ admin.get('/results/:rid', wrap(async (req, res) => {
         ref: r.ref || null, scores: r.groups ? Object.fromEntries(J(r.groups, []).map(g => [g.key, g.score])) : null, pct: r.pct != null ? Number(r.pct) : null
       };
     })
+  });
+}));
+// round dashboard: everything is read in a handful of parallel queries and analysed in memory
+admin.get('/dashboard/:rid', wrap(async (req, res) => {
+  const round = await getRound(req.params.rid);
+  if (!round) return bad(res, 'not_found', {}, 404);
+  const [gs, cs, rosterRow, atts, events, trend] = await Promise.all([
+    groups(), courses(),
+    one('SELECT COUNT(*) AS n FROM roster WHERE round_id = ?', [round.id]),
+    all('SELECT * FROM attempts WHERE round_id = ?', [round.id]).then(r => r.map(parseAttempt)),
+    all('SELECT sid, kind, duration_ms FROM events WHERE round_id = ?', [round.id]),
+    all(`SELECT r.id, r.name, r.opens_at, COUNT(x.sid) AS n, AVG(x.pct) AS mean FROM rounds r JOIN results x ON x.round_id = r.id
+         GROUP BY r.id ORDER BY r.opens_at`)
+  ]);
+  const ids = [...new Set(atts.flatMap(a => a.question_ids))], chunks = [], qs = {};
+  for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+  for (const part of await Promise.all(chunks.map(c => questionsByIds(c)))) Object.assign(qs, part);
+  const ins = roundInsights({ round, roster: Number(rosterRow.n), attempts: atts, events, questionsById: qs, groups: gs });
+  res.json({
+    round, ...ins,
+    courses: courseBreakdown(atts.filter(a => a.status === 'submitted'), qs, cs),
+    trend: trend.map(t => ({ id: t.id, name: t.name, opensAt: Number(t.opens_at), n: Number(t.n), mean: Math.round(Number(t.mean) * 10) / 10 }))
   });
 }));
 admin.get('/results/:rid/courses', wrap(async (req, res) => {
